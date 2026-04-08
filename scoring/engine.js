@@ -1,4 +1,167 @@
-// Wired in step 3 — safety scoring formula
+// scoring/engine.js — safety scoring formula + deterministic segment classifier
+//
+// scoreRoute(route) → {
+//   name, fileType, overall, tier, totalDist,
+//   segments: [{ index, points, midpoint, roadType, speedLimit, width,
+//                score, dist, tier, factors: { width, speed, traffic, infra, surface } }]
+// }
+
+import {
+  ROAD_PROFILES, WIDTH_DEFAULTS, SPEED_DEFAULTS, ROAD_WEIGHTS, getTier,
+} from './profiles.js';
+
+// ── Haversine distance (miles) ─────────────────────────────────────────────────
+function haversine([lat1, lon1], [lat2, lon2]) {
+  const R = 3958.8; // Earth radius in miles
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) *
+    Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function totalDistance(points) {
+  let d = 0;
+  for (let i = 1; i < points.length; i++) d += haversine(points[i - 1], points[i]);
+  return d;
+}
+
+// ── Seeded deterministic road classifier ──────────────────────────────────────
+// Rounds to a ~100m grid so consecutive nearby points share a road type,
+// then hashes to pick consistently from ROAD_WEIGHTS.
+function coordHash(lat, lon) {
+  // Snap to ~100m grid to keep adjacent points on the same "road"
+  const gLat = Math.round(lat * 1000);
+  const gLon = Math.round(lon * 1000);
+  let h = (Math.imul(gLat, 0x16561EDC) ^ Math.imul(gLon, 0x7A3BC5F7)) >>> 0;
+  h ^= h >>> 13;
+  h  = Math.imul(h, 0x85EBCA6B) >>> 0;
+  h ^= h >>> 11;
+  h  = Math.imul(h, 0xC2B2AE35) >>> 0;
+  h ^= h >>> 16;
+  return (h >>> 0) / 0x100000000; // [0, 1)
+}
+
+function classifyRoadType(lat, lon) {
+  const v = coordHash(lat, lon);
+  return (ROAD_WEIGHTS.find(w => v < w.cum) ?? ROAD_WEIGHTS[ROAD_WEIGHTS.length - 1]).type;
+}
+
+// ── Factor scoring functions ───────────────────────────────────────────────────
+function scoreWidth(meters) {
+  if (meters >= 12) return 95;
+  if (meters >= 8)  return 78;
+  if (meters >= 6)  return 62;
+  if (meters >= 4)  return 45;
+  return 30;
+}
+
+function scoreSpeed(mph) {
+  if (mph <= 15) return 96;
+  if (mph <= 25) return 84;
+  if (mph <= 30) return 72;
+  if (mph <= 35) return 58;
+  if (mph <= 45) return 40;
+  if (mph <= 55) return 22;
+  return 10;
+}
+
+// ── Segment scorer ─────────────────────────────────────────────────────────────
+function scoreSegment(roadType, speedLimit, width) {
+  const profile = ROAD_PROFILES[roadType] ?? ROAD_PROFILES.tertiary;
+  const factors = {
+    width:   scoreWidth(width),
+    speed:   scoreSpeed(speedLimit),
+    traffic: profile.trafficScore,
+    infra:   profile.infraScore,
+    surface: profile.surfaceScore,
+  };
+  const score = Math.round(
+    factors.width   * 0.25 +
+    factors.speed   * 0.25 +
+    factors.traffic * 0.28 +
+    factors.infra   * 0.12 +
+    factors.surface * 0.10
+  );
+  return { score, factors };
+}
+
+// ── Segment grouping ───────────────────────────────────────────────────────────
+// Aim for segments of roughly SEGMENT_TARGET_MILES each.
+// Minimum 2 points per segment; never splits a pair.
+const SEGMENT_TARGET_MILES = 0.15;
+
+function groupIntoSegments(points) {
+  if (points.length < 2) throw new Error('Route needs at least 2 GPS points.');
+
+  const segments = [];
+  let current = [points[0]];
+
+  for (let i = 1; i < points.length; i++) {
+    current.push(points[i]);
+    const d = totalDistance(current);
+    const last = i === points.length - 1;
+
+    if ((d >= SEGMENT_TARGET_MILES || last) && current.length >= 2) {
+      segments.push(current);
+      current = [points[i]]; // overlap: last point of prev = first of next
+    }
+  }
+
+  // Merge a trailing stub (< 2 points) into the previous segment
+  if (current.length > 1 && segments.length > 0) {
+    const last = segments[segments.length - 1];
+    segments[segments.length - 1] = [...last, ...current.slice(1)];
+  }
+
+  return segments;
+}
+
+// ── Main export ────────────────────────────────────────────────────────────────
 export async function scoreRoute(route) {
-  throw new Error('Scoring engine not yet implemented (step 3)');
+  const { points, name, fileType } = route;
+  const groups = groupIntoSegments(points);
+
+  const segments = groups.map((pts, i) => {
+    const dist = totalDistance(pts);
+    const mid  = pts[Math.floor(pts.length / 2)];
+
+    const roadType   = classifyRoadType(mid[0], mid[1]);
+    const speedLimit = SPEED_DEFAULTS[roadType]  ?? 35;
+    const width      = WIDTH_DEFAULTS[roadType]  ?? 6;
+
+    const { score, factors } = scoreSegment(roadType, speedLimit, width);
+    const tier = getTier(score);
+
+    return {
+      index: i,
+      points: pts,
+      midpoint: mid,
+      roadType,
+      speedLimit,
+      width,
+      score,
+      dist,
+      tier: tier.label,
+      tierColor: tier.color,
+      factors,
+    };
+  });
+
+  const totalDist = segments.reduce((s, sg) => s + sg.dist, 0);
+  const overall   = Math.round(
+    segments.reduce((s, sg) => s + sg.score * (sg.dist / totalDist), 0)
+  );
+
+  return {
+    name,
+    fileType,
+    overall,
+    tier: getTier(overall),
+    totalDist,
+    segments,
+  };
 }
