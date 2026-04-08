@@ -47,6 +47,9 @@
 /* ── Reset ──────────────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* Ensure the HTML hidden attribute always wins over author display rules */
+[hidden] { display: none !important; }
+
 html, body {
   height: 100%;
   background: var(--bg);
