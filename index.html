@@ -7,6 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:ital,wght@0,400;0,500;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -45,9 +46,16 @@
         <p class="loading-label" id="loadingLabel">Parsing route…</p>
       </section>
 
-      <!-- ── Results state (wired in later steps) ── -->
+      <!-- ── Results state ── -->
       <section class="results-zone" id="resultsZone" hidden>
-        <!-- Populated by ui/results.js and ui/map.js -->
+        <div class="results-layout">
+          <!-- Left col: score + breakdown (step 5) -->
+          <div class="results-panel" id="resultsPanel"></div>
+          <!-- Right col: map -->
+          <div class="map-wrap">
+            <div id="map"></div>
+          </div>
+        </div>
       </section>
 
     </main>
@@ -59,6 +67,7 @@
 
   </div>
 
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script type="module" src="app.js"></script>
 </body>
 </html>
