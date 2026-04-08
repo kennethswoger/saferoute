@@ -462,8 +462,7 @@ a:hover { color: var(--safe-light); }
   font-family: var(--font-mono);
   font-size: 0.7rem;
   color: var(--muted);
-  align-self: flex-end;
-  padding-bottom: 3px;
+  padding-top: 10px;
 }
 
 .score-meta {

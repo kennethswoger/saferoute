@@ -33,11 +33,6 @@ export function initMap(segments) {
     }).addTo(map);
   }
 
-  // The map container was hidden (display:none) during init so Leaflet
-  // measured zero dimensions and never requested tiles. Force a resize
-  // after the browser has painted the now-visible container.
-  requestAnimationFrame(() => map.invalidateSize());
-
   // Clear previous route layers
   if (layerGroup) layerGroup.clearLayers();
   layerGroup = L.layerGroup().addTo(map);
@@ -76,8 +71,14 @@ export function initMap(segments) {
    .bindTooltip('Finish', { permanent: false, className: 'sr-tooltip' })
    .addTo(layerGroup);
 
-  // Fit map to route bounds with padding
-  map.fitBounds(L.latLngBounds(allPoints), { padding: [40, 40] });
+  // The container was display:none until setState('results') ran moments ago.
+  // rAF fires before paint, so the container still has zero dimensions then.
+  // setTimeout lets the browser fully paint and lay out before we measure,
+  // then fitBounds triggers tile requests against the real container size.
+  setTimeout(() => {
+    map.invalidateSize();
+    map.fitBounds(L.latLngBounds(allPoints), { padding: [40, 40] });
+  }, 50);
 }
 
 // ── Tooltip content ────────────────────────────────────────────────────────────
