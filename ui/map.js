@@ -33,6 +33,11 @@ export function initMap(segments) {
     }).addTo(map);
   }
 
+  // The map container was hidden (display:none) during init so Leaflet
+  // measured zero dimensions and never requested tiles. Force a resize
+  // after the browser has painted the now-visible container.
+  requestAnimationFrame(() => map.invalidateSize());
+
   // Clear previous route layers
   if (layerGroup) layerGroup.clearLayers();
   layerGroup = L.layerGroup().addTo(map);
