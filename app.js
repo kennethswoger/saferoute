@@ -54,12 +54,17 @@ document.addEventListener('drop', e => {
 demoBtn.addEventListener('click', async () => {
   setState('loading');
   setLoadingLabel('Loading demo route…');
-  // Step 2 will fetch and parse assets/demo-kc.gpx
-  // Placeholder for now:
-  setTimeout(() => {
-    console.log('[SafeRoute] Demo route clicked — parser not yet wired (step 2)');
-    setState('idle');
-  }, 800);
+  try {
+    const res = await fetch('./assets/demo-kc.gpx');
+    if (!res.ok) throw new Error('Demo route file not found.');
+    const text = await res.text();
+    const { parseGPX } = await import('./parser/gpx.js');
+    const route = parseGPX(text);
+    await processRoute(route);
+  } catch (err) {
+    console.error('[SafeRoute]', err);
+    showError(err.message ?? 'Could not load demo route.');
+  }
 });
 
 // ── Handle file ────────────────────────────────────────────────────────────────
@@ -75,28 +80,32 @@ async function handleFile(file) {
   setLoadingLabel('Parsing route…');
 
   try {
-    // Parsers wired in step 2 — import dynamically so this scaffolds cleanly
     const { parseFile } = await import('./parser/index.js');
     const route = await parseFile(file, ext);
-
-    setLoadingLabel('Scoring segments…');
-
-    // Scoring engine wired in step 3
-    const { scoreRoute } = await import('./scoring/engine.js');
-    const result = await scoreRoute(route);
-
-    // Map + results UI wired in steps 4 & 5
-    const { renderResults } = await import('./ui/results.js');
-    const { initMap } = await import('./ui/map.js');
-
-    setState('results');
-    initMap(result.segments);
-    renderResults(result);
-
+    await processRoute(route);
   } catch (err) {
     console.error('[SafeRoute]', err);
     showError(err.message ?? 'Something went wrong — check the console.');
   }
+}
+
+// ── Process parsed route ───────────────────────────────────────────────────────
+async function processRoute(route) {
+  console.log(`[SafeRoute] Parsed "${route.name}" — ${route.points.length} points (${route.fileType})`);
+
+  setLoadingLabel('Scoring segments…');
+
+  // Scoring engine — wired in step 3
+  const { scoreRoute } = await import('./scoring/engine.js');
+  const result = await scoreRoute(route);
+
+  // Map + results UI — wired in steps 4 & 5
+  const { initMap } = await import('./ui/map.js');
+  const { renderResults } = await import('./ui/results.js');
+
+  setState('results');
+  initMap(result.segments);
+  renderResults(result);
 }
 
 // ── Error helper ───────────────────────────────────────────────────────────────
