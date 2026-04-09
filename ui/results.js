@@ -110,14 +110,29 @@ function buildHazards(segments) {
 // ── Segment table ──────────────────────────────────────────────────────────────
 function buildSegmentTable(segments) {
   const rows = segments.map(s => {
-    const color = scoreColor(s.score);
+    const color      = scoreColor(s.score);
+    const osmBadge   = s.source === 'osm'
+      ? `<span class="source-badge source-osm">OSM</span>`
+      : `<span class="source-badge source-sim">Simulated</span>`;
+    const nameStr    = s.streetName ? `<span class="detail-street">${s.streetName}</span>` : `<span class="detail-street detail-unnamed">—</span>`;
+    const surfaceStr = s.surface    ? `<span class="detail-surface">${s.surface}</span>` : '';
+
     return `
       <tr class="seg-row" data-seg-idx="${s.index}">
         <td><span class="seg-score" style="color:${color}">${s.score}</span></td>
         <td>${tierDot(s.tierColor)} ${s.tier}</td>
         <td class="mono">${s.roadType}</td>
         <td class="mono">${s.speedLimit} mph</td>
-        <td class="mono">${fmtDist(s.dist)}</td>
+        <td class="mono seg-row-end">${fmtDist(s.dist)}<span class="seg-chevron">›</span></td>
+      </tr>
+      <tr class="seg-detail">
+        <td colspan="5">
+          <div class="seg-detail-inner">
+            ${osmBadge}
+            ${nameStr}
+            ${surfaceStr}
+          </div>
+        </td>
       </tr>`;
   }).join('');
 

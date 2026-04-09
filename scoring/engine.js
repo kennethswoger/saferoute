@@ -129,10 +129,10 @@ function resolveRoadAttrs(mid, osmTags, idx, osmFailed) {
     const roadType   = osmTags.highway;
     const speedLimit = parseSpeed(osmTags.maxspeed) ?? SPEED_DEFAULTS[roadType] ?? 35;
     const width      = parseWidth(osmTags.width, roadType);
-    return { roadType, speedLimit, width, source: 'osm' };
+    return { roadType, speedLimit, width, source: 'osm', streetName: osmTags.name ?? null, surface: osmTags.surface ?? null };
   }
   // Total failure or partial miss — residential is the safest default for cycling routes
-  return { roadType: 'residential', speedLimit: SPEED_DEFAULTS.residential, width: WIDTH_DEFAULTS.residential, source: 'simulated' };
+  return { roadType: 'residential', speedLimit: SPEED_DEFAULTS.residential, width: WIDTH_DEFAULTS.residential, source: 'simulated', streetName: null, surface: null };
 }
 
 // ── Main export ────────────────────────────────────────────────────────────────
@@ -150,7 +150,7 @@ export async function scoreRoute(route, onProgress) {
     const dist = totalDistance(pts);
     const mid  = pts[Math.floor(pts.length / 2)];
 
-    const { roadType, speedLimit, width, source } =
+    const { roadType, speedLimit, width, source, streetName, surface } =
       resolveRoadAttrs(mid, osmData?.[i] ?? null, i, osmFailed);
 
     const { score, factors } = scoreSegment(roadType, speedLimit, width);
@@ -169,6 +169,8 @@ export async function scoreRoute(route, onProgress) {
       tierColor: tier.color,
       factors,
       source,
+      streetName,
+      surface,
     };
   });
 

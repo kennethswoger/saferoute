@@ -186,6 +186,7 @@ function matchWaysToPoints(elements, samplePoints) {
       cycleway: tags.cycleway ?? null,
       surface:  tags.surface  ?? null,
       lanes:    tags.lanes    ?? null,
+      name:     tags.name     ?? null,
     };
   });
 }
