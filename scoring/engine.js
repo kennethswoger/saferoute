@@ -9,6 +9,7 @@
 import {
   ROAD_PROFILES, WIDTH_DEFAULTS, SPEED_DEFAULTS, ROAD_WEIGHTS, getTier,
 } from './profiles.js';
+import { fetchRoadData, parseSpeed, parseWidth } from './overpass.js';
 
 // ── Haversine distance (miles) ─────────────────────────────────────────────────
 function haversine([lat1, lon1], [lat2, lon2]) {
@@ -120,18 +121,37 @@ function groupIntoSegments(points) {
   return segments;
 }
 
+// ── Resolve road attributes for a segment ─────────────────────────────────────
+// Uses OSM tags when available, falls back to simulated classifier.
+function resolveRoadAttrs(mid, osmTags) {
+  if (osmTags?.highway) {
+    const roadType   = osmTags.highway;
+    const speedLimit = parseSpeed(osmTags.maxspeed) ?? SPEED_DEFAULTS[roadType] ?? 35;
+    const width      = parseWidth(osmTags.width, roadType);
+    return { roadType, speedLimit, width, source: 'osm' };
+  }
+  // Simulated fallback
+  const roadType   = classifyRoadType(mid[0], mid[1]);
+  const speedLimit = SPEED_DEFAULTS[roadType] ?? 35;
+  const width      = WIDTH_DEFAULTS[roadType] ?? 6;
+  return { roadType, speedLimit, width, source: 'simulated' };
+}
+
 // ── Main export ────────────────────────────────────────────────────────────────
-export async function scoreRoute(route) {
+export async function scoreRoute(route, onProgress) {
   const { points, name, fileType } = route;
   const groups = groupIntoSegments(points);
+
+  // Fetch real OSM data — falls back to null if Overpass is unavailable
+  const midpoints = groups.map(pts => pts[Math.floor(pts.length / 2)]);
+  const osmData   = await fetchRoadData(midpoints, onProgress);
 
   const segments = groups.map((pts, i) => {
     const dist = totalDistance(pts);
     const mid  = pts[Math.floor(pts.length / 2)];
 
-    const roadType   = classifyRoadType(mid[0], mid[1]);
-    const speedLimit = SPEED_DEFAULTS[roadType]  ?? 35;
-    const width      = WIDTH_DEFAULTS[roadType]  ?? 6;
+    const { roadType, speedLimit, width, source } =
+      resolveRoadAttrs(mid, osmData?.[i] ?? null);
 
     const { score, factors } = scoreSegment(roadType, speedLimit, width);
     const tier = getTier(score);
@@ -148,6 +168,7 @@ export async function scoreRoute(route) {
       tier: tier.label,
       tierColor: tier.color,
       factors,
+      source,
     };
   });
 
@@ -155,6 +176,9 @@ export async function scoreRoute(route) {
   const overall   = Math.round(
     segments.reduce((s, sg) => s + sg.score * (sg.dist / totalDist), 0)
   );
+
+  const osmCount = segments.filter(s => s.source === 'osm').length;
+  console.log(`[SafeRoute] Scored ${segments.length} segments — ${osmCount} from OSM, ${segments.length - osmCount} simulated`);
 
   return {
     name,
