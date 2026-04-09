@@ -90,7 +90,14 @@ function buildHazards(segments) {
       </div>`;
   }
 
-  const items = hazards.map(s => `
+  const items = hazards.map(s => {
+    const osmBadge   = s.source === 'osm'
+      ? `<span class="source-badge source-osm">OSM</span>`
+      : `<span class="source-badge source-sim">Simulated</span>`;
+    const nameStr    = s.streetName ? `<span class="detail-street">${s.streetName}</span>` : `<span class="detail-street detail-unnamed">—</span>`;
+    const surfaceStr = s.surface    ? `<span class="detail-surface">${s.surface}</span>` : '';
+
+    return `
     <div class="hazard-item" data-seg-idx="${s.index}">
       <div class="hazard-score" style="color:${scoreColor(s.score)}">${s.score}</div>
       <div class="hazard-detail">
@@ -98,7 +105,14 @@ function buildHazards(segments) {
         <span class="hazard-meta">${s.speedLimit} mph · ${s.width}m wide · ${fmtDist(s.dist)}</span>
       </div>
       <div class="hazard-tier" style="color:${scoreColor(s.score)}">${s.tier}</div>
-    </div>`).join('');
+      <span class="seg-chevron">›</span>
+      <div class="hazard-expand">
+        <div class="seg-detail-inner">
+          ${osmBadge}${nameStr}${surfaceStr}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
 
   return `
     <div class="card hazards-card">
