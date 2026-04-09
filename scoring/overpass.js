@@ -106,10 +106,18 @@ async function fetchCluster(lat, lon) {
 
       if (!res.ok) {
         lastErr = new Error(`Overpass HTTP ${res.status} from ${endpoint}`);
-        continue; // try next endpoint
+        continue;
       }
 
-      const json = await res.json();
+      let json;
+      try {
+        json = await res.json();
+      } catch {
+        // Server returned 200 with an HTML error body (e.g. "runtime error: open64")
+        lastErr = new Error(`Overpass returned non-JSON from ${endpoint}`);
+        continue;
+      }
+
       const way  = bestWay(json.elements);
       const tags = way?.tags ?? null;
 
