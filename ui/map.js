@@ -1,84 +1,130 @@
 // ui/map.js — Leaflet map, color-coded segment polylines, start/end markers
 
-const TILE_URL = 'https://{s}.basemaps.cartocdn.com/dark_matter_all/{z}/{x}/{y}{r}.png';
-const TILE_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
+const TILE_URL  = 'https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png';
+const TILE_ATTR = '&copy; <a href="https://stadiamaps.com/">Stadia Maps</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 
-// Color by score using design-system values
-function segmentColor(score) {
-  if (score >= 75) return '#1D9E75'; // --safe
-  if (score >= 50) return '#EF9F27'; // --warn-mid
-  return '#D85A30';                  // --danger
+const TIER_COLOR = {
+  safe:   '#1D9E75',
+  warn:   '#EF9F27',
+  danger: '#D85A30',
+};
+
+function segmentColor(seg) {
+  return TIER_COLOR[seg.tierColor] ?? '#EF9F27';
 }
 
-// Weight by road importance (wider lines for busier/riskier roads)
-function segmentWeight(score) {
-  if (score >= 75) return 4;
-  if (score >= 50) return 5;
+function segmentWeight(seg) {
+  if (seg.tierColor === 'safe')   return 4;
+  if (seg.tierColor === 'warn')   return 5;
   return 6;
 }
 
-let map = null;
+let map        = null;
 let layerGroup = null;
+let polylines  = [];   // L.Polyline per segment, indexed by segment order
+let segMeta    = [];   // { tierColor } for style restoration
+
+export function focusSegment(idx) {
+  if (!map) return;
+  polylines.forEach((line, i) => {
+    if (i === idx) {
+      line.setStyle({ color: '#FFFFFF', weight: 8, opacity: 1.0 });
+      line.bringToFront();
+      map.fitBounds(line.getBounds(), { padding: [60, 60], maxZoom: 17 });
+    } else {
+      line.setStyle({
+        color:   TIER_COLOR[segMeta[i]?.tierColor] ?? '#EF9F27',
+        weight:  segmentWeight({ tierColor: segMeta[i]?.tierColor }),
+        opacity: 0.22,
+      });
+    }
+  });
+  document.getElementById('map')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+export function clearFocus() {
+  polylines.forEach((line, i) => {
+    line.setStyle({
+      color:   TIER_COLOR[segMeta[i]?.tierColor] ?? '#EF9F27',
+      weight:  segmentWeight({ tierColor: segMeta[i]?.tierColor }),
+      opacity: 0.88,
+    });
+  });
+  // Let the results panel know to drop the active highlight
+  document.getElementById('resultsPanel')
+    ?.querySelectorAll('.seg-active')
+    .forEach(el => el.classList.remove('seg-active'));
+}
 
 export function initMap(segments) {
-  // Collect all points for bounds
   const allPoints = segments.flatMap(s => s.points);
+  const bounds    = L.latLngBounds(allPoints);
+  const mapEl     = document.getElementById('map');
 
-  if (!map) {
+  // Build layers into a function we can call once the map exists
+  const addLayers = () => {
+    if (layerGroup) layerGroup.clearLayers();
+    layerGroup = L.layerGroup().addTo(map);
+    polylines  = [];
+    segMeta    = [];
+
+    for (const seg of segments) {
+      const line = L.polyline(seg.points, {
+        color:     segmentColor(seg),
+        weight:    segmentWeight(seg),
+        opacity:   0.88,
+        lineCap:   'round',
+        lineJoin:  'round',
+      });
+      line.bindTooltip(buildTooltip(seg), {
+        sticky: true, className: 'sr-tooltip', offset: [12, 0],
+      });
+      polylines.push(line);
+      segMeta.push({ tierColor: seg.tierColor });
+      layerGroup.addLayer(line);
+    }
+
+    L.marker(allPoints[0], { icon: markerIcon('#1D9E75', 'S') })
+     .bindTooltip('Start', { className: 'sr-tooltip' })
+     .addTo(layerGroup);
+
+    L.marker(allPoints[allPoints.length - 1], { icon: markerIcon('#6B8070', 'E') })
+     .bindTooltip('Finish', { className: 'sr-tooltip' })
+     .addTo(layerGroup);
+
+    map.fitBounds(bounds, { padding: [40, 40] });
+  };
+
+  // If map already exists (second route load), just swap layers
+  if (map) {
+    addLayers();
+    return;
+  }
+
+  // First load — the map container was display:none until setState('results')
+  // just ran. Accessing offsetWidth forces the browser to synchronously
+  // recalculate layout, so by the time L.map() is called the container
+  // has real pixel dimensions and Leaflet can request tiles correctly.
+  void mapEl.offsetWidth; // force reflow
+
+  if (mapEl.offsetWidth > 0) {
     map = L.map('map', { zoomControl: true, attributionControl: true });
-    L.tileLayer(TILE_URL, {
-      attribution: TILE_ATTR,
-      subdomains: 'abcd',
-      maxZoom: 19,
-    }).addTo(map);
-  }
-
-  // Clear previous route layers
-  if (layerGroup) layerGroup.clearLayers();
-  layerGroup = L.layerGroup().addTo(map);
-
-  // Draw segment polylines
-  for (const seg of segments) {
-    const color  = segmentColor(seg.score);
-    const weight = segmentWeight(seg.score);
-
-    const line = L.polyline(seg.points, {
-      color,
-      weight,
-      opacity: 0.88,
-      lineCap: 'round',
-      lineJoin: 'round',
+    L.tileLayer(TILE_URL, { attribution: TILE_ATTR, subdomains: 'abcd', maxZoom: 19 }).addTo(map);
+    map.on('click', clearFocus);
+    addLayers();
+  } else {
+    // Fallback: container is still zero — wait for ResizeObserver
+    const ro = new ResizeObserver(() => {
+      if (mapEl.offsetWidth > 0) {
+        ro.disconnect();
+        map = L.map('map', { zoomControl: true, attributionControl: true });
+        L.tileLayer(TILE_URL, { attribution: TILE_ATTR, subdomains: 'abcd', maxZoom: 19 }).addTo(map);
+        map.on('click', clearFocus);
+        addLayers();
+      }
     });
-
-    line.bindTooltip(buildTooltip(seg), {
-      sticky: true,
-      className: 'sr-tooltip',
-      offset: [12, 0],
-    });
-
-    layerGroup.addLayer(line);
+    ro.observe(mapEl);
   }
-
-  // Start marker — green pin
-  const startIcon = markerIcon('#1D9E75', 'S');
-  L.marker(allPoints[0], { icon: startIcon })
-   .bindTooltip('Start', { permanent: false, className: 'sr-tooltip' })
-   .addTo(layerGroup);
-
-  // End marker — muted pin
-  const endIcon = markerIcon('#6B8070', 'E');
-  L.marker(allPoints[allPoints.length - 1], { icon: endIcon })
-   .bindTooltip('Finish', { permanent: false, className: 'sr-tooltip' })
-   .addTo(layerGroup);
-
-  // The container was display:none until setState('results') ran moments ago.
-  // rAF fires before paint, so the container still has zero dimensions then.
-  // setTimeout lets the browser fully paint and lay out before we measure,
-  // then fitBounds triggers tile requests against the real container size.
-  setTimeout(() => {
-    map.invalidateSize();
-    map.fitBounds(L.latLngBounds(allPoints), { padding: [40, 40] });
-  }, 50);
 }
 
 // ── Tooltip content ────────────────────────────────────────────────────────────
@@ -105,10 +151,7 @@ function markerIcon(color, label) {
             fill="#fff">${label}</text>
     </svg>`;
   return L.divIcon({
-    html: svg,
-    className: '',
-    iconSize: [28, 36],
-    iconAnchor: [14, 36],
-    tooltipAnchor: [14, -36],
+    html: svg, className: '',
+    iconSize: [28, 36], iconAnchor: [14, 36], tooltipAnchor: [14, -36],
   });
 }

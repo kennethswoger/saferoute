@@ -93,14 +93,20 @@ async function handleFile(file) {
 async function processRoute(route) {
   console.log(`[SafeRoute] Parsed "${route.name}" — ${route.points.length} points (${route.fileType})`);
 
-  setLoadingLabel('Scoring segments…');
+  setLoadingLabel('Querying road data…');
 
-  // Scoring engine — wired in step 3
   const { scoreRoute } = await import('./scoring/engine.js');
-  const result = await scoreRoute(route);
 
-  // Map + results UI — wired in steps 4 & 5
-  const { initMap } = await import('./ui/map.js');
+  const result = await scoreRoute(route, (done, total) => {
+    if (total === 0) return;
+    if (done === total) {
+      setLoadingLabel('Scoring segments…');
+    } else {
+      setLoadingLabel(`Querying road data… ${done}/${total}`);
+    }
+  });
+
+  const { initMap }       = await import('./ui/map.js');
   const { renderResults } = await import('./ui/results.js');
 
   setState('results');
