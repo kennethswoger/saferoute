@@ -19,7 +19,7 @@ const OVERPASS_ENDPOINTS = [
 const BATCH_TIMEOUT  = 30000; // ms client-side timeout for the single batch request
 const SERVER_TIMEOUT = 25;    // seconds — Overpass [timeout:N] directive
 const MAX_QUERIES    = 25;    // sample points per route (fewer = smaller query)
-const QUERY_RADIUS    = 15;   // metres radius around each sample point
+const QUERY_RADIUS    = 25;   // metres radius around each sample point
 const MAX_CENTER_DIST = 120;  // metres — ignore ways whose bbox centroid is farther than this
 const RETRY_DELAY    = 4000;  // ms — pause before single retry on total failure
 

@@ -131,15 +131,8 @@ function resolveRoadAttrs(mid, osmTags, idx, osmFailed) {
     const width      = parseWidth(osmTags.width, roadType);
     return { roadType, speedLimit, width, source: 'osm' };
   }
-  if (osmFailed) {
-    // Total API failure — residential is the most realistic default for cycling routes
-    return { roadType: 'residential', speedLimit: SPEED_DEFAULTS.residential, width: WIDTH_DEFAULTS.residential, source: 'simulated' };
-  }
-  // Partial miss — use index-seeded hash for unbiased distribution
-  const roadType   = classifyRoadType(mid[0], mid[1], idx);
-  const speedLimit = SPEED_DEFAULTS[roadType] ?? 35;
-  const width      = WIDTH_DEFAULTS[roadType] ?? 6;
-  return { roadType, speedLimit, width, source: 'simulated' };
+  // Total failure or partial miss — residential is the safest default for cycling routes
+  return { roadType: 'residential', speedLimit: SPEED_DEFAULTS.residential, width: WIDTH_DEFAULTS.residential, source: 'simulated' };
 }
 
 // ── Main export ────────────────────────────────────────────────────────────────
