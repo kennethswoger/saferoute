@@ -6,10 +6,16 @@
 
 import { WIDTH_DEFAULTS } from './profiles.js';
 
-const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
-const BATCH_SIZE   = 15;    // points per Overpass query
-const QUERY_RADIUS = 30;    // metres around each cluster centroid
-const REQUEST_DELAY = 300;  // ms between requests (be a good citizen)
+// Tried in order — first success wins. kumi.systems is more reliable
+// than the public overpass-api.de instance under load.
+const OVERPASS_ENDPOINTS = [
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass-api.de/api/interpreter',
+];
+const CLIENT_TIMEOUT = 8000; // ms — don't hang the spinner on a slow server
+const BATCH_SIZE     = 15;   // points per Overpass query
+const QUERY_RADIUS   = 30;   // metres around each cluster centroid
+const REQUEST_DELAY  = 300;  // ms between requests (be a good citizen)
 
 // ── Speed normalisation ────────────────────────────────────────────────────────
 export function parseSpeed(raw) {
@@ -76,35 +82,59 @@ function bestWay(elements) {
   })[0];
 }
 
-// ── Single cluster fetch ───────────────────────────────────────────────────────
+// ── Single cluster fetch — tries each endpoint in order ───────────────────────
 async function fetchCluster(lat, lon) {
   const cached = readCache(lat, lon);
   if (cached) return cached;
 
   const body = `data=${encodeURIComponent(buildQuery(lat, lon))}`;
-  const res  = await fetch(OVERPASS_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body,
-  });
+  let lastErr;
 
-  if (!res.ok) throw new Error(`Overpass HTTP ${res.status}`);
+  for (const endpoint of OVERPASS_ENDPOINTS) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), CLIENT_TIMEOUT);
 
-  const json = await res.json();
-  const way  = bestWay(json.elements);
-  const tags = way?.tags ?? null;
+    try {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body,
+        signal: controller.signal,
+      });
 
-  const result = tags ? {
-    highway:   tags.highway   ?? null,
-    maxspeed:  tags.maxspeed  ?? null,
-    width:     tags.width     ?? null,
-    cycleway:  tags.cycleway  ?? null,
-    surface:   tags.surface   ?? null,
-    lanes:     tags.lanes     ?? null,
-  } : null;
+      clearTimeout(timer);
 
-  writeCache(lat, lon, result);
-  return result;
+      if (!res.ok) {
+        lastErr = new Error(`Overpass HTTP ${res.status} from ${endpoint}`);
+        continue; // try next endpoint
+      }
+
+      const json = await res.json();
+      const way  = bestWay(json.elements);
+      const tags = way?.tags ?? null;
+
+      const result = tags ? {
+        highway:  tags.highway  ?? null,
+        maxspeed: tags.maxspeed ?? null,
+        width:    tags.width    ?? null,
+        cycleway: tags.cycleway ?? null,
+        surface:  tags.surface  ?? null,
+        lanes:    tags.lanes    ?? null,
+      } : null;
+
+      writeCache(lat, lon, result);
+      return result;
+
+    } catch (err) {
+      clearTimeout(timer);
+      lastErr = err.name === 'AbortError'
+        ? new Error(`Overpass timeout after ${CLIENT_TIMEOUT}ms (${endpoint})`)
+        : err;
+      // try next endpoint
+    }
+  }
+
+  throw lastErr; // all endpoints failed — caught by fetchRoadData
 }
 
 // ── Delay helper ───────────────────────────────────────────────────────────────
