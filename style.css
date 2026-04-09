@@ -704,8 +704,9 @@ a:hover { color: var(--safe-light); }
   border: 1px solid;
   flex-shrink: 0;
 }
-.source-osm { background: var(--safe-bg); color: var(--safe-mid); border-color: var(--safe); }
-.source-sim { background: var(--s4); color: var(--muted); border-color: var(--border2); }
+.source-osm      { background: var(--safe-bg);  color: var(--safe-mid);  border-color: var(--safe); }
+.source-inferred { background: var(--warn-bg);  color: var(--warn-mid);  border-color: var(--warn); }
+.source-sim      { background: var(--s4);       color: var(--muted);     border-color: var(--border2); }
 
 .detail-street {
   font-size: 0.82rem;

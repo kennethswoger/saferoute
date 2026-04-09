@@ -174,13 +174,53 @@ export async function scoreRoute(route, onProgress) {
     };
   });
 
+  // ── Neighbor inference pass ────────────────────────────────────────────────
+  // Simulated segments sandwiched between OSM segments inherit road type and
+  // speed from the nearest OSM neighbor on either side. This covers the common
+  // case where a midpoint GPS coordinate misses its road centroid by a few
+  // metres but the segments on each side of the gap came back from OSM.
+  for (let i = 0; i < segments.length; i++) {
+    if (segments[i].source !== 'simulated') continue;
+
+    let left = null, right = null;
+    for (let j = i - 1; j >= 0; j--) {
+      if (segments[j].source === 'osm') { left = segments[j]; break; }
+    }
+    for (let j = i + 1; j < segments.length; j++) {
+      if (segments[j].source === 'osm') { right = segments[j]; break; }
+    }
+
+    // Pick the nearer neighbor; if equidistant prefer left
+    const neighbor = (left && right)
+      ? (i - left.index <= right.index - i ? left : right)
+      : (left ?? right);
+
+    if (!neighbor) continue;
+
+    const { score, factors } = scoreSegment(neighbor.roadType, neighbor.speedLimit, neighbor.width);
+    const tier = getTier(score);
+    segments[i] = {
+      ...segments[i],
+      roadType:   neighbor.roadType,
+      speedLimit: neighbor.speedLimit,
+      width:      neighbor.width,
+      score,
+      factors,
+      tier:      tier.label,
+      tierColor: tier.color,
+      source:    'inferred',
+    };
+  }
+
   const totalDist = segments.reduce((s, sg) => s + sg.dist, 0);
   const overall   = Math.round(
     segments.reduce((s, sg) => s + sg.score * (sg.dist / totalDist), 0)
   );
 
-  const osmCount = segments.filter(s => s.source === 'osm').length;
-  console.log(`[SafeRoute] Scored ${segments.length} segments — ${osmCount} from OSM, ${segments.length - osmCount} simulated`);
+  const osmCount      = segments.filter(s => s.source === 'osm').length;
+  const inferredCount = segments.filter(s => s.source === 'inferred').length;
+  const simCount      = segments.length - osmCount - inferredCount;
+  console.log(`[SafeRoute] Scored ${segments.length} segments — ${osmCount} OSM, ${inferredCount} inferred, ${simCount} simulated`);
 
   return {
     name,

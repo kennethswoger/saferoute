@@ -91,9 +91,9 @@ function buildHazards(segments) {
   }
 
   const items = hazards.map(s => {
-    const osmBadge   = s.source === 'osm'
-      ? `<span class="source-badge source-osm">OSM</span>`
-      : `<span class="source-badge source-sim">Simulated</span>`;
+    const osmBadge   = s.source === 'osm'      ? `<span class="source-badge source-osm">OSM</span>`
+                     : s.source === 'inferred' ? `<span class="source-badge source-inferred">Inferred</span>`
+                     :                           `<span class="source-badge source-sim">Simulated</span>`;
     const nameStr    = s.streetName ? `<span class="detail-street">${s.streetName}</span>` : `<span class="detail-street detail-unnamed">—</span>`;
     const surfaceStr = s.surface    ? `<span class="detail-surface">${s.surface}</span>` : '';
 
@@ -125,9 +125,9 @@ function buildHazards(segments) {
 function buildSegmentTable(segments) {
   const rows = segments.map(s => {
     const color      = scoreColor(s.score);
-    const osmBadge   = s.source === 'osm'
-      ? `<span class="source-badge source-osm">OSM</span>`
-      : `<span class="source-badge source-sim">Simulated</span>`;
+    const osmBadge   = s.source === 'osm'      ? `<span class="source-badge source-osm">OSM</span>`
+                     : s.source === 'inferred' ? `<span class="source-badge source-inferred">Inferred</span>`
+                     :                           `<span class="source-badge source-sim">Simulated</span>`;
     const nameStr    = s.streetName ? `<span class="detail-street">${s.streetName}</span>` : `<span class="detail-street detail-unnamed">—</span>`;
     const surfaceStr = s.surface    ? `<span class="detail-surface">${s.surface}</span>` : '';
 
