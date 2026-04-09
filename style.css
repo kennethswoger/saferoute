@@ -579,7 +579,12 @@ a:hover { color: var(--safe-light); }
   background: var(--s2);
   border-radius: var(--r-md);
   border: 1px solid var(--border);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
 }
+
+.hazard-item:hover { background: var(--s3); border-color: var(--border2); }
+.hazard-item.seg-active { background: var(--s3); border-color: var(--border3); }
 
 .hazard-score {
   font-family: var(--font-display);
@@ -647,7 +652,9 @@ a:hover { color: var(--safe-light); }
 
 .seg-row:last-child td { border-bottom: none; }
 
+.seg-row { cursor: pointer; }
 .seg-row:hover td { background: var(--s2); }
+.seg-row.seg-active td { background: var(--s3); }
 
 .seg-score {
   font-family: var(--font-display);

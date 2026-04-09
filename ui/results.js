@@ -91,7 +91,7 @@ function buildHazards(segments) {
   }
 
   const items = hazards.map(s => `
-    <div class="hazard-item">
+    <div class="hazard-item" data-seg-idx="${s.index}">
       <div class="hazard-score" style="color:${scoreColor(s.score)}">${s.score}</div>
       <div class="hazard-detail">
         <span class="hazard-road">${s.roadType}</span>
@@ -112,7 +112,7 @@ function buildSegmentTable(segments) {
   const rows = segments.map(s => {
     const color = scoreColor(s.score);
     return `
-      <tr class="seg-row">
+      <tr class="seg-row" data-seg-idx="${s.index}">
         <td><span class="seg-score" style="color:${color}">${s.score}</span></td>
         <td>${tierDot(s.tierColor)} ${s.tier}</td>
         <td class="mono">${s.roadType}</td>
@@ -191,5 +191,22 @@ export function renderResults(result) {
 
   document.getElementById('backBtn').addEventListener('click', () => {
     import('../app.js').then(({ setState }) => setState('idle'));
+  });
+
+  // ── Segment / hazard → map focus ───────────────────────────────────────────
+  panel.addEventListener('click', async e => {
+    const target = e.target.closest('[data-seg-idx]');
+    if (!target) return;
+
+    const idx = parseInt(target.dataset.segIdx, 10);
+    const { focusSegment, clearFocus } = await import('./map.js');
+
+    if (target.classList.contains('seg-active')) {
+      clearFocus();
+    } else {
+      focusSegment(idx);
+      panel.querySelectorAll('[data-seg-idx]').forEach(el => el.classList.remove('seg-active'));
+      target.classList.add('seg-active');
+    }
   });
 }

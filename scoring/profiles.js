@@ -30,15 +30,16 @@ export const SPEED_DEFAULTS = {
 
 // Cumulative probability thresholds for seeded road type selection.
 // Distribution reflects a realistic cycling route mix.
+// trunk/motorway excluded — cyclists won't route onto them, and if OSM
+// genuinely tags a road as trunk the real Overpass data will be used instead.
 export const ROAD_WEIGHTS = [
   { type: 'cycleway',    cum: 0.08 },
   { type: 'path',        cum: 0.15 },
   { type: 'residential', cum: 0.47 },
   { type: 'service',     cum: 0.52 },
   { type: 'tertiary',    cum: 0.74 },
-  { type: 'secondary',   cum: 0.88 },
-  { type: 'primary',     cum: 0.97 },
-  { type: 'trunk',       cum: 1.00 },
+  { type: 'secondary',   cum: 0.91 },
+  { type: 'primary',     cum: 1.00 },
 ];
 
 // Score tier thresholds
