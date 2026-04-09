@@ -21,6 +21,7 @@ const SERVER_TIMEOUT = 25;    // seconds — Overpass [timeout:N] directive
 const MAX_QUERIES    = 25;    // sample points per route (fewer = smaller query)
 const QUERY_RADIUS    = 15;   // metres radius around each sample point
 const MAX_CENTER_DIST = 120;  // metres — ignore ways whose bbox centroid is farther than this
+const RETRY_DELAY    = 4000;  // ms — pause before single retry on total failure
 
 // ── Speed normalisation ────────────────────────────────────────────────────────
 export function parseSpeed(raw) {
@@ -231,11 +232,21 @@ export async function fetchRoadData(points, onProgress) {
       onProgress?.(0, samplePts.length);
 
       let json;
-      try {
-        json = await fetchBatch(uncachedPts);
-      } catch {
-        console.warn('[SafeRoute] Overpass batch failed — all endpoints timed out or errored. Falling back to simulated data.');
-        return null;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          if (attempt > 0) {
+            console.warn(`[SafeRoute] Overpass batch failed, retrying in ${RETRY_DELAY / 1000}s…`);
+            onProgress?.(0, samplePts.length);
+            await new Promise(r => setTimeout(r, RETRY_DELAY));
+          }
+          json = await fetchBatch(uncachedPts);
+          break;
+        } catch {
+          if (attempt === 1) {
+            console.warn('[SafeRoute] Overpass batch failed after retry — falling back to simulated data.');
+            return null;
+          }
+        }
       }
 
       const freshResults = matchWaysToPoints(json.elements ?? [], uncachedPts);

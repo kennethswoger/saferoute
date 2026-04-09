@@ -31,13 +31,12 @@ function totalDistance(points) {
 }
 
 // ── Seeded deterministic road classifier ──────────────────────────────────────
-// Rounds to a ~100m grid so consecutive nearby points share a road type,
-// then hashes to pick consistently from ROAD_WEIGHTS.
-function coordHash(lat, lon) {
-  // Snap to ~100m grid to keep adjacent points on the same "road"
+// idx is mixed in so segments at similar coordinates don't all collapse to
+// the same hash bucket (geographic bias observed for certain US regions).
+function coordHash(lat, lon, idx) {
   const gLat = Math.round(lat * 1000);
   const gLon = Math.round(lon * 1000);
-  let h = (Math.imul(gLat, 0x16561EDC) ^ Math.imul(gLon, 0x7A3BC5F7)) >>> 0;
+  let h = (Math.imul(gLat, 0x16561EDC) ^ Math.imul(gLon, 0x7A3BC5F7) ^ Math.imul(idx + 1, 0xC4CEB9FE)) >>> 0;
   h ^= h >>> 13;
   h  = Math.imul(h, 0x85EBCA6B) >>> 0;
   h ^= h >>> 11;
@@ -46,8 +45,8 @@ function coordHash(lat, lon) {
   return (h >>> 0) / 0x100000000; // [0, 1)
 }
 
-function classifyRoadType(lat, lon) {
-  const v = coordHash(lat, lon);
+function classifyRoadType(lat, lon, idx = 0) {
+  const v = coordHash(lat, lon, idx);
   return (ROAD_WEIGHTS.find(w => v < w.cum) ?? ROAD_WEIGHTS[ROAD_WEIGHTS.length - 1]).type;
 }
 
@@ -123,15 +122,21 @@ function groupIntoSegments(points) {
 
 // ── Resolve road attributes for a segment ─────────────────────────────────────
 // Uses OSM tags when available, falls back to simulated classifier.
-function resolveRoadAttrs(mid, osmTags) {
+// osmFailed = true when Overpass returned nothing at all (total API failure);
+// in that case default to residential rather than risk hash-bucket bias.
+function resolveRoadAttrs(mid, osmTags, idx, osmFailed) {
   if (osmTags?.highway) {
     const roadType   = osmTags.highway;
     const speedLimit = parseSpeed(osmTags.maxspeed) ?? SPEED_DEFAULTS[roadType] ?? 35;
     const width      = parseWidth(osmTags.width, roadType);
     return { roadType, speedLimit, width, source: 'osm' };
   }
-  // Simulated fallback
-  const roadType   = classifyRoadType(mid[0], mid[1]);
+  if (osmFailed) {
+    // Total API failure — residential is the most realistic default for cycling routes
+    return { roadType: 'residential', speedLimit: SPEED_DEFAULTS.residential, width: WIDTH_DEFAULTS.residential, source: 'simulated' };
+  }
+  // Partial miss — use index-seeded hash for unbiased distribution
+  const roadType   = classifyRoadType(mid[0], mid[1], idx);
   const speedLimit = SPEED_DEFAULTS[roadType] ?? 35;
   const width      = WIDTH_DEFAULTS[roadType] ?? 6;
   return { roadType, speedLimit, width, source: 'simulated' };
@@ -146,12 +151,14 @@ export async function scoreRoute(route, onProgress) {
   const midpoints = groups.map(pts => pts[Math.floor(pts.length / 2)]);
   const osmData   = await fetchRoadData(midpoints, onProgress);
 
+  const osmFailed = osmData === null;
+
   const segments = groups.map((pts, i) => {
     const dist = totalDistance(pts);
     const mid  = pts[Math.floor(pts.length / 2)];
 
     const { roadType, speedLimit, width, source } =
-      resolveRoadAttrs(mid, osmData?.[i] ?? null);
+      resolveRoadAttrs(mid, osmData?.[i] ?? null, i, osmFailed);
 
     const { score, factors } = scoreSegment(roadType, speedLimit, width);
     const tier = getTier(score);
