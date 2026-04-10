@@ -368,6 +368,9 @@ a:hover { color: var(--safe-light); }
 /* ── Results panel ───────────────────────────────────────────────────────────── */
 .results-header {
   padding: 1.25rem 0 0.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .btn-back {
@@ -383,6 +386,22 @@ a:hover { color: var(--safe-light); }
 }
 
 .btn-back:hover { border-color: var(--border3); color: var(--text); }
+
+.btn-share {
+  background: none;
+  border: 1px solid var(--border2);
+  border-radius: var(--r-sm);
+  padding: 0.35rem 0.9rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--muted);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+  margin-left: auto;
+}
+
+.btn-share:hover { border-color: var(--border3); color: var(--text); }
+.btn-share--copied { color: var(--safe) !important; border-color: var(--safe) !important; }
 
 /* ── Shared card ─────────────────────────────────────────────────────────────── */
 .card {
