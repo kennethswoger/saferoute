@@ -44,7 +44,17 @@ Each road segment is scored 0–100 across five factors:
 | 35–49 | Risky | Red |
 | 0–34 | Avoid | Red |
 
-OSM data is fetched via a single batched Overpass union query covering up to 25 evenly-spaced sample points per route. Results are cached in `sessionStorage` so subsequent loads for the same area are instant. When Overpass is unavailable the engine falls back to a deterministic coordinate-hash classifier using the same road profiles.
+OSM data is fetched via a single batched Overpass union query covering up to 25 evenly-spaced sample points per route, using nearest-node geometry matching to avoid long collector roads bleeding into adjacent residential streets. Results are cached in `sessionStorage` so subsequent loads for the same area are instant.
+
+**Data source tiers** (shown as badges in the segment detail panel):
+
+| Badge | Meaning |
+|---|---|
+| OSM | Road attributes matched directly from OpenStreetMap |
+| Inferred | No direct OSM highway hit — attributes inherited from the nearest OSM neighbor segment, or synthesized from a nearby `landuse=residential` polygon |
+| Simulated | OSM unavailable — defaults to residential road profile |
+
+When Overpass is fully unavailable the engine falls back to residential defaults for all segments rather than risk misclassification.
 
 ---
 
