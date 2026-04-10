@@ -21,8 +21,8 @@ const SERVER_TIMEOUT  = 25;    // seconds — Overpass [timeout:N] directive
 const MAX_QUERIES     = 25;    // sample points per route (fewer = smaller query)
 const QUERY_RADIUS    = 25;    // metres radius around each sample point
 const LANDUSE_RADIUS  = 100;   // metres — larger radius for residential landuse polygons
-const MAX_CENTER_DIST = 120;   // metres — highway way centroid cap
-const MAX_LANDUSE_DIST = 600;  // metres — landuse polygon centroid cap (large polygons)
+const MAX_HIGHWAY_DIST = 50;   // metres — max nearest-node distance for highway ways
+const MAX_LANDUSE_DIST = 200;  // metres — max nearest-node distance for landuse polygons
 const RETRY_DELAY     = 4000;  // ms — pause before single retry on total failure
 
 // ── Speed normalisation ────────────────────────────────────────────────────────
@@ -99,8 +99,8 @@ function distMetres(lat1, lon1, lat2, lon2) {
 
 // ── Build a single batched Overpass QL union query ─────────────────────────────
 // Each sample point becomes one `way(around:R,lat,lon)[filters]` clause.
-// `out tags center` returns each way's tags + bounding-box centroid so we
-// can match ways back to their nearest sample point.
+// `out tags geom` returns each way's tags + full node geometry so we can
+// use nearest-node distance instead of bbox centroid for matching.
 function buildBatchQuery(points) {
   const highwayFilter = `["highway"]["highway"!~"motorway_link|trunk_link|footway|steps|pedestrian"]`;
   const highwayClauses = points
@@ -111,7 +111,7 @@ function buildBatchQuery(points) {
   const landuseClauses = points
     .map(([lat, lon]) => `  way(around:${LANDUSE_RADIUS},${lat},${lon})[landuse=residential];`)
     .join('\n');
-  return `[out:json][timeout:${SERVER_TIMEOUT}];\n(\n${highwayClauses}\n${landuseClauses}\n);\nout tags center;`;
+  return `[out:json][timeout:${SERVER_TIMEOUT}];\n(\n${highwayClauses}\n${landuseClauses}\n);\nout tags geom;`;
 }
 
 // ── Fire the batch query, racing both endpoints simultaneously ─────────────────
@@ -138,27 +138,38 @@ async function fetchBatch(points) {
   return await Promise.any(attempts); // throws AggregateError only if ALL fail
 }
 
+// ── Nearest-node distance from a way's geometry to a query point ──────────────
+// `out geom` returns el.geometry as an array of { lat, lon } nodes.
+// Using the nearest node rather than the bbox centroid prevents long roads
+// (e.g. Lee Blvd) from bleeding into adjacent residential intersections whose
+// centroid happens to land closer to the sample point than the residential road.
+function nearestNodeDist(el, lat, lon) {
+  const nodes = el.geometry;
+  if (!nodes?.length) return Infinity;
+  let min = Infinity;
+  for (const node of nodes) {
+    const d = distMetres(lat, lon, node.lat, node.lon);
+    if (d < min) min = d;
+  }
+  return min;
+}
+
 // ── Match returned ways back to sample points ──────────────────────────────────
-// Overpass `out center` gives each way's bounding-box centroid. We assign
-// every returned way to the nearest sample point (nearest-neighbour), then
-// pick the best-ranked way for each sample point.
-//
-// This is more robust than a fixed MATCH_RADIUS because it works regardless
-// of how long individual road segments are in OSM.
+// For each returned way, compute the nearest-node distance to every sample
+// point and assign it to the sample point it is physically closest to,
+// subject to a hard cap so ways that are just far away get discarded.
 function matchWaysToPoints(elements, samplePoints) {
   const buckets = samplePoints.map(() => []);
 
   for (const el of elements) {
-    if (!el.center) continue;
+    if (!el.geometry?.length) continue;
     const isLanduse = !!el.tags?.landuse;
-    const cap = isLanduse ? MAX_LANDUSE_DIST : MAX_CENTER_DIST;
+    const cap = isLanduse ? MAX_LANDUSE_DIST : MAX_HIGHWAY_DIST;
 
+    // Find the nearest sample point using nearest-node distance
     let minDist = Infinity, nearestIdx = 0;
     for (let i = 0; i < samplePoints.length; i++) {
-      const d = distMetres(
-        samplePoints[i][0], samplePoints[i][1],
-        el.center.lat,      el.center.lon,
-      );
+      const d = nearestNodeDist(el, samplePoints[i][0], samplePoints[i][1]);
       if (d < minDist) { minDist = d; nearestIdx = i; }
     }
     if (minDist <= cap) {

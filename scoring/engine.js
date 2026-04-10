@@ -209,9 +209,10 @@ export async function scoreRoute(route, onProgress) {
       width:      neighbor.width,
       score,
       factors,
-      tier:      tier.label,
-      tierColor: tier.color,
-      source:    'inferred',
+      tier:       tier.label,
+      tierColor:  tier.color,
+      source:     'inferred',
+      streetName: null,   // never inherit neighbor's street name — different road
     };
   }
 
