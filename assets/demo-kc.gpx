@@ -1,14 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <gpx creator="StravaGPX" version="1.1" xmlns="http://www.topografix.com/GPX/1/1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">
  <metadata>
-  <name>Apogee ATP -  Loose to Leawood loops then NKC</name>
-  <desc>Loose Park to Leawood North and South Loops is roughly 30 mile loop back to start. 
-
-After that we will ride to NKC and back.
-</desc>
+  <name>Kansas City To Leawood Route</name>
+  <desc>After that we will ride to NKC and back.</desc>
   <author>
-   <name>Kenneth Swoger - Apogee ATP</name>
-   <link href="https://www.strava.com/athletes/32314327"/>
+   <name>Kenneth Swoger</name>
+   <link href=""/>
   </author>
   <copyright author="OpenStreetMap contributors">
    <year>2020</year>
@@ -17,10 +14,10 @@ After that we will ride to NKC and back.
   <link href="https://www.strava.com/routes/3352113291671500072"/>
  </metadata>
  <trk>
-  <name>Apogee ATP -  Loose to Leawood loops then NKC</name>
-  <desc>Loose Park to Leawood North and South Loops is roughly 30 mile loop back to start. 
+  <name>Test Route</name>
+  <desc>Test. 
 
-After that we will ride to NKC and back.
+
 </desc>
   <link href="https://www.strava.com/routes/3352113291671500072"/>
   <type>cycling</type>
