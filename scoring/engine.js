@@ -54,8 +54,8 @@ function classifyRoadType(lat, lon, idx = 0) {
 function scoreWidth(meters) {
   if (meters >= 12) return 95;
   if (meters >= 8)  return 78;
-  if (meters >= 6)  return 62;
-  if (meters >= 4)  return 45;
+  if (meters >= 6)  return 72;
+  if (meters >= 3)  return 55; // dedicated cycling path / narrow lane
   return 30;
 }
 
