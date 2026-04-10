@@ -48,6 +48,38 @@
   --r-lg: 16px;
 }
 
+/* ── Light mode token overrides ────────────────────────────────────────────── */
+[data-theme="light"] {
+  --bg:   #f8f9fa;
+  --s1:   #f3f4f5;
+  --s2:   #edeeef;
+  --s3:   #e7e8e9;
+  --s4:   #e1e3e4;
+
+  --border:  rgba(0,0,0,0.07);
+  --border2: rgba(0,0,0,0.12);
+  --border3: rgba(0,0,0,0.20);
+
+  --text:  #191c1d;
+  --muted: #757a60;
+  --dim:   #c5c9ac;
+
+  --safe:       #1D9E75;
+  --safe-bg:    #d1ffe8;
+  --safe-mid:   #1D9E75;
+  --safe-light: #5DCAA5;
+
+  --caution:              #92570a;
+  --caution-container:    #ffe0b8;
+  --caution-fixed:        #92570a;
+  --caution-bg:           #ffe0b8;
+  --on-caution-container: #6b3d00;
+
+  --danger:     #ba1a1a;
+  --danger-bg:  #ffdad6;
+  --danger-mid: #ba1a1a;
+}
+
 /* ── Reset ──────────────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -77,12 +109,26 @@ a:hover { color: var(--safe-light); }
 /* ── Header ─────────────────────────────────────────────────────────────────── */
 .header {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 0.875rem;
   padding: 1.25rem 2rem;
   border-bottom: 1px solid var(--border);
   background: var(--s1);
 }
+
+.btn-theme {
+  margin-left: auto;
+  background: none;
+  border: 1px solid var(--border2);
+  border-radius: var(--r-sm);
+  padding: 0.3rem 0.6rem;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--muted);
+  transition: border-color 0.15s, color 0.15s;
+}
+.btn-theme:hover { border-color: var(--border3); color: var(--text); }
 
 .logo {
   font-family: var(--font-display);

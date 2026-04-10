@@ -1,7 +1,12 @@
 // ui/map.js — Leaflet map, color-coded segment polylines, start/end markers
 
-const TILE_URL  = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+const TILE_URLS = {
+  dark:  'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+  light: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+};
 const TILE_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
+
+let tileLayer = null;
 
 const TIER_COLOR = {
   safe:   '#1D9E75',
@@ -127,9 +132,12 @@ export function initMap(segments) {
   // has real pixel dimensions and Leaflet can request tiles correctly.
   void mapEl.offsetWidth; // force reflow
 
+  const currentTheme = document.documentElement.dataset.theme ?? 'dark';
+  const tileUrl = TILE_URLS[currentTheme] ?? TILE_URLS.dark;
+
   if (mapEl.offsetWidth > 0) {
     map = L.map('map', { zoomControl: true, attributionControl: true });
-    L.tileLayer(TILE_URL, { attribution: TILE_ATTR, subdomains: 'abcd', maxZoom: 19 }).addTo(map);
+    tileLayer = L.tileLayer(tileUrl, { attribution: TILE_ATTR, subdomains: 'abcd', maxZoom: 19 }).addTo(map);
     map.on('click', clearFocus);
     addLayers();
   } else {
@@ -138,7 +146,7 @@ export function initMap(segments) {
       if (mapEl.offsetWidth > 0) {
         ro.disconnect();
         map = L.map('map', { zoomControl: true, attributionControl: true });
-        L.tileLayer(TILE_URL, { attribution: TILE_ATTR, subdomains: 'abcd', maxZoom: 19 }).addTo(map);
+        tileLayer = L.tileLayer(tileUrl, { attribution: TILE_ATTR, subdomains: 'abcd', maxZoom: 19 }).addTo(map);
         map.on('click', clearFocus);
         addLayers();
       }
@@ -174,4 +182,14 @@ function markerIcon(color, label) {
     html: svg, className: '',
     iconSize: [28, 36], iconAnchor: [14, 36], tooltipAnchor: [14, -36],
   });
+}
+
+// ── Swap tile layer when theme changes ─────────────────────────────────────────
+export function setTileTheme(theme) {
+  if (!map || !tileLayer) return;
+  const url = TILE_URLS[theme] ?? TILE_URLS.dark;
+  tileLayer.remove();
+  tileLayer = L.tileLayer(url, { attribution: TILE_ATTR, subdomains: 'abcd', maxZoom: 19 });
+  tileLayer.addTo(map);
+  tileLayer.bringToBack();
 }
