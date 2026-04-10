@@ -12,11 +12,15 @@ const fileInput    = document.getElementById('fileInput');
 const demoBtn      = document.getElementById('demoBtn');
 
 // ── State machine ──────────────────────────────────────────────────────────────
-export function setState(state) {
+export async function setState(state) {
   appEl.dataset.state = state;
   uploadZone.hidden  = state !== 'idle';
   loadingZone.hidden = state !== 'loading';
   resultsZone.hidden = state !== 'results';
+  if (state === 'idle') {
+    const { clearShareHash } = await import('./ui/share.js');
+    clearShareHash();
+  }
 }
 
 export function setLoadingLabel(text) {
@@ -108,7 +112,9 @@ async function processRoute(route) {
 
   const { initMap }       = await import('./ui/map.js');
   const { renderResults } = await import('./ui/results.js');
+  const { setShareHash }  = await import('./ui/share.js');
 
+  setShareHash(route.points, route.name);
   setState('results');
   initMap(result.segments);
   renderResults(result);
@@ -117,6 +123,17 @@ async function processRoute(route) {
 // ── Error helper ───────────────────────────────────────────────────────────────
 function showError(msg) {
   setState('idle');
-  // Simple inline error for now — can be upgraded to a toast in later steps
   alert(msg);
+}
+
+// ── Auto-load from shared URL hash ────────────────────────────────────────────
+// If the page was opened with #r=<encoded>, decode and score immediately.
+const initialHash = window.location.hash;
+if (initialHash.startsWith('#r=')) {
+  import('./ui/share.js').then(({ decodeRoute }) => {
+    const decoded = decodeRoute(initialHash.slice(3));
+    if (decoded) {
+      processRoute({ ...decoded, fileType: 'shared' });
+    }
+  });
 }

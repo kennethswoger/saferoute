@@ -171,6 +171,7 @@ export function renderResults(result) {
   panel.innerHTML = `
     <div class="results-header">
       <button class="btn-back" id="backBtn">← New route</button>
+      <button class="btn-share" id="shareBtn">Share</button>
     </div>
 
     <div class="card score-card">
@@ -191,6 +192,22 @@ export function renderResults(result) {
 
   document.getElementById('backBtn').addEventListener('click', () => {
     import('../app.js').then(({ setState }) => setState('idle'));
+  });
+
+  document.getElementById('shareBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('shareBtn');
+    try {
+      const { copyResultsText } = await import('./share.js');
+      await copyResultsText(result);
+      btn.textContent = 'Copied!';
+      btn.classList.add('btn-share--copied');
+    } catch {
+      btn.textContent = 'Failed';
+    }
+    setTimeout(() => {
+      btn.textContent = 'Share';
+      btn.classList.remove('btn-share--copied');
+    }, 2000);
   });
 
   // ── Segment / hazard → map focus ───────────────────────────────────────────
