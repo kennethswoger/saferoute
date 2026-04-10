@@ -11,18 +11,18 @@
 
 import { WIDTH_DEFAULTS } from './profiles.js';
 
-// Tried simultaneously — first valid response wins.
+// Raced simultaneously — first valid response wins.
 const OVERPASS_ENDPOINTS = [
   'https://overpass.kumi.systems/api/interpreter',
   'https://overpass-api.de/api/interpreter',
+  'https://overpass.openstreetmap.fr/api/interpreter',
+  'https://overpass.openstreetmap.ru/api/interpreter',
 ];
 const BATCH_TIMEOUT   = 30000; // ms client-side timeout for the single batch request
 const SERVER_TIMEOUT  = 25;    // seconds — Overpass [timeout:N] directive
 const MAX_QUERIES     = 15;    // sample points per route (fewer = smaller query)
 const QUERY_RADIUS    = 25;    // metres radius around each sample point
-const LANDUSE_RADIUS  = 100;   // metres — larger radius for residential landuse polygons
 const MAX_HIGHWAY_DIST = 50;   // metres — max nearest-node distance for highway ways
-const MAX_LANDUSE_DIST = 200;  // metres — max nearest-node distance for landuse polygons
 const RETRY_DELAY     = 4000;  // ms — pause before single retry on total failure
 
 // ── Speed normalisation ────────────────────────────────────────────────────────
@@ -74,17 +74,6 @@ const HIGHWAY_RANK = [
   'tertiary', 'secondary', 'primary', 'trunk', 'motorway',
 ];
 
-function bestWay(elements) {
-  if (!elements?.length) return null;
-  return elements.slice().sort((a, b) => {
-    const ra = HIGHWAY_RANK.indexOf(a.tags?.highway ?? '');
-    const rb = HIGHWAY_RANK.indexOf(b.tags?.highway ?? '');
-    const ia = ra === -1 ? 99 : ra;
-    const ib = rb === -1 ? 99 : rb;
-    return ia - ib;
-  })[0];
-}
-
 // ── Haversine distance in metres ───────────────────────────────────────────────
 function distMetres(lat1, lon1, lat2, lon2) {
   const R    = 6371000;
@@ -97,11 +86,12 @@ function distMetres(lat1, lon1, lat2, lon2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-// ── Build Overpass QL queries ──────────────────────────────────────────────────
-// Two separate queries so we can use `out tags geom` for highway ways (needed
-// for nearest-node matching) while using the cheaper `out tags center` for
-// landuse polygons (we only need to know if one exists nearby, not its shape).
-function buildHighwayQuery(points) {
+// ── Build a single batched Overpass QL query ───────────────────────────────────
+// Highway ways only with `out tags geom` for nearest-node distance matching.
+// Landuse inference was removed to halve request count and reduce 504 pressure
+// on public Overpass servers; the neighbor inference pass covers most of what
+// landuse was providing.
+function buildBatchQuery(points) {
   const filter  = `["highway"]["highway"!~"motorway_link|trunk_link|footway|steps|pedestrian"]`;
   const clauses = points
     .map(([lat, lon]) => `  way(around:${QUERY_RADIUS},${lat},${lon})${filter};`)
@@ -109,16 +99,9 @@ function buildHighwayQuery(points) {
   return `[out:json][timeout:${SERVER_TIMEOUT}];\n(\n${clauses}\n);\nout tags geom;`;
 }
 
-function buildLanduseQuery(points) {
-  const clauses = points
-    .map(([lat, lon]) => `  way(around:${LANDUSE_RADIUS},${lat},${lon})[landuse=residential];`)
-    .join('\n');
-  return `[out:json][timeout:${SERVER_TIMEOUT}];\n(\n${clauses}\n);\nout tags center;`;
-}
-
-// ── Fire a query against both endpoints, first valid response wins ─────────────
-async function fetchQuery(query) {
-  const body = `data=${encodeURIComponent(query)}`;
+// ── Fire the batch query, racing all endpoints simultaneously ──────────────────
+async function fetchBatch(points) {
+  const body = `data=${encodeURIComponent(buildBatchQuery(points))}`;
   const attempts = OVERPASS_ENDPOINTS.map(endpoint => {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), BATCH_TIMEOUT);
@@ -135,16 +118,7 @@ async function fetchQuery(query) {
     })
     .catch(err => { clearTimeout(timer); throw err; });
   });
-  return await Promise.any(attempts);
-}
-
-async function fetchBatch(points) {
-  // Run both queries in parallel — landuse result merged into elements array
-  const [hwJson, luJson] = await Promise.all([
-    fetchQuery(buildHighwayQuery(points)),
-    fetchQuery(buildLanduseQuery(points)).catch(() => ({ elements: [] })), // landuse is best-effort
-  ]);
-  return { elements: [...(hwJson.elements ?? []), ...(luJson.elements ?? [])] };
+  return await Promise.any(attempts); // throws AggregateError only if ALL fail
 }
 
 // ── Nearest-node distance from a way's geometry to a query point ──────────────
@@ -171,19 +145,14 @@ function matchWaysToPoints(elements, samplePoints) {
   const buckets = samplePoints.map(() => []);
 
   for (const el of elements) {
-    const isLanduse = !!el.tags?.landuse;
-    const cap = isLanduse ? MAX_LANDUSE_DIST : MAX_HIGHWAY_DIST;
+    if (!el.geometry?.length) continue;
 
-    // Highway ways: use nearest-node distance (requires geom).
-    // Landuse ways: use bbox centroid distance (center only, no geom).
     let minDist = Infinity, nearestIdx = 0;
     for (let i = 0; i < samplePoints.length; i++) {
-      const d = isLanduse
-        ? (el.center ? distMetres(samplePoints[i][0], samplePoints[i][1], el.center.lat, el.center.lon) : Infinity)
-        : nearestNodeDist(el, samplePoints[i][0], samplePoints[i][1]);
+      const d = nearestNodeDist(el, samplePoints[i][0], samplePoints[i][1]);
       if (d < minDist) { minDist = d; nearestIdx = i; }
     }
-    if (minDist <= cap) {
+    if (minDist <= MAX_HIGHWAY_DIST) {
       buckets[nearestIdx].push({ el, dist: minDist });
     }
   }
@@ -191,52 +160,29 @@ function matchWaysToPoints(elements, samplePoints) {
   return buckets.map(group => {
     if (!group.length) return null;
 
-    // Split: highway ways vs landuse context ways
-    const highwayGroup = group.filter(({ el }) => el.tags?.highway);
+    // Sort: closest way wins. Within 12m prefer cycling-friendlier road type.
+    const PROXIMITY_BAND = 12;
+    group.sort((a, b) => {
+      const band = Math.abs(a.dist - b.dist) <= PROXIMITY_BAND;
+      if (band) {
+        const ra = HIGHWAY_RANK.indexOf(a.el.tags?.highway ?? '');
+        const rb = HIGHWAY_RANK.indexOf(b.el.tags?.highway ?? '');
+        return (ra === -1 ? 99 : ra) - (rb === -1 ? 99 : rb);
+      }
+      return a.dist - b.dist;
+    });
 
-    if (highwayGroup.length) {
-      // Sort: closest way wins. Within 12m prefer cycling-friendlier road type.
-      const PROXIMITY_BAND = 12;
-      highwayGroup.sort((a, b) => {
-        const band = Math.abs(a.dist - b.dist) <= PROXIMITY_BAND;
-        if (band) {
-          const ra = HIGHWAY_RANK.indexOf(a.el.tags?.highway ?? '');
-          const rb = HIGHWAY_RANK.indexOf(b.el.tags?.highway ?? '');
-          return (ra === -1 ? 99 : ra) - (rb === -1 ? 99 : rb);
-        }
-        return a.dist - b.dist;
-      });
-      const tags = highwayGroup[0].el?.tags ?? null;
-      if (!tags) return null;
-      return {
-        highway:  tags.highway  ?? null,
-        maxspeed: tags.maxspeed ?? null,
-        width:    tags.width    ?? null,
-        cycleway: tags.cycleway ?? null,
-        surface:  tags.surface  ?? null,
-        lanes:    tags.lanes    ?? null,
-        name:     tags.name     ?? null,
-      };
-    }
-
-    // No highway way found — if the area is tagged residential in OSM, infer it.
-    // Houses lining a street → landuse=residential polygon nearby → safe to assume
-    // the road is a residential 25 mph street even without a direct highway hit.
-    const inResidentialArea = group.some(({ el }) => el.tags?.landuse === 'residential');
-    if (inResidentialArea) {
-      return {
-        highway:          'residential',
-        maxspeed:         null,
-        width:            null,
-        cycleway:         null,
-        surface:          null,
-        lanes:            null,
-        name:             null,
-        landuse_inferred: true,
-      };
-    }
-
-    return null;
+    const tags = group[0].el?.tags ?? null;
+    if (!tags) return null;
+    return {
+      highway:  tags.highway  ?? null,
+      maxspeed: tags.maxspeed ?? null,
+      width:    tags.width    ?? null,
+      cycleway: tags.cycleway ?? null,
+      surface:  tags.surface  ?? null,
+      lanes:    tags.lanes    ?? null,
+      name:     tags.name     ?? null,
+    };
   });
 }
 
