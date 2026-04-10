@@ -18,7 +18,7 @@ const OVERPASS_ENDPOINTS = [
 ];
 const BATCH_TIMEOUT   = 30000; // ms client-side timeout for the single batch request
 const SERVER_TIMEOUT  = 25;    // seconds — Overpass [timeout:N] directive
-const MAX_QUERIES     = 25;    // sample points per route (fewer = smaller query)
+const MAX_QUERIES     = 15;    // sample points per route (fewer = smaller query)
 const QUERY_RADIUS    = 25;    // metres radius around each sample point
 const LANDUSE_RADIUS  = 100;   // metres — larger radius for residential landuse polygons
 const MAX_HIGHWAY_DIST = 50;   // metres — max nearest-node distance for highway ways
@@ -97,27 +97,28 @@ function distMetres(lat1, lon1, lat2, lon2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-// ── Build a single batched Overpass QL union query ─────────────────────────────
-// Each sample point becomes one `way(around:R,lat,lon)[filters]` clause.
-// `out tags geom` returns each way's tags + full node geometry so we can
-// use nearest-node distance instead of bbox centroid for matching.
-function buildBatchQuery(points) {
-  const highwayFilter = `["highway"]["highway"!~"motorway_link|trunk_link|footway|steps|pedestrian"]`;
-  const highwayClauses = points
-    .map(([lat, lon]) => `  way(around:${QUERY_RADIUS},${lat},${lon})${highwayFilter};`)
+// ── Build Overpass QL queries ──────────────────────────────────────────────────
+// Two separate queries so we can use `out tags geom` for highway ways (needed
+// for nearest-node matching) while using the cheaper `out tags center` for
+// landuse polygons (we only need to know if one exists nearby, not its shape).
+function buildHighwayQuery(points) {
+  const filter  = `["highway"]["highway"!~"motorway_link|trunk_link|footway|steps|pedestrian"]`;
+  const clauses = points
+    .map(([lat, lon]) => `  way(around:${QUERY_RADIUS},${lat},${lon})${filter};`)
     .join('\n');
-  // Residential landuse polygons tell us "this area is a neighbourhood" even when
-  // no highway way falls within the tighter query radius of the sample point.
-  const landuseClauses = points
-    .map(([lat, lon]) => `  way(around:${LANDUSE_RADIUS},${lat},${lon})[landuse=residential];`)
-    .join('\n');
-  return `[out:json][timeout:${SERVER_TIMEOUT}];\n(\n${highwayClauses}\n${landuseClauses}\n);\nout tags geom;`;
+  return `[out:json][timeout:${SERVER_TIMEOUT}];\n(\n${clauses}\n);\nout tags geom;`;
 }
 
-// ── Fire the batch query, racing both endpoints simultaneously ─────────────────
-async function fetchBatch(points) {
-  const body = `data=${encodeURIComponent(buildBatchQuery(points))}`;
+function buildLanduseQuery(points) {
+  const clauses = points
+    .map(([lat, lon]) => `  way(around:${LANDUSE_RADIUS},${lat},${lon})[landuse=residential];`)
+    .join('\n');
+  return `[out:json][timeout:${SERVER_TIMEOUT}];\n(\n${clauses}\n);\nout tags center;`;
+}
 
+// ── Fire a query against both endpoints, first valid response wins ─────────────
+async function fetchQuery(query) {
+  const body = `data=${encodeURIComponent(query)}`;
   const attempts = OVERPASS_ENDPOINTS.map(endpoint => {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), BATCH_TIMEOUT);
@@ -134,8 +135,16 @@ async function fetchBatch(points) {
     })
     .catch(err => { clearTimeout(timer); throw err; });
   });
+  return await Promise.any(attempts);
+}
 
-  return await Promise.any(attempts); // throws AggregateError only if ALL fail
+async function fetchBatch(points) {
+  // Run both queries in parallel — landuse result merged into elements array
+  const [hwJson, luJson] = await Promise.all([
+    fetchQuery(buildHighwayQuery(points)),
+    fetchQuery(buildLanduseQuery(points)).catch(() => ({ elements: [] })), // landuse is best-effort
+  ]);
+  return { elements: [...(hwJson.elements ?? []), ...(luJson.elements ?? [])] };
 }
 
 // ── Nearest-node distance from a way's geometry to a query point ──────────────
@@ -162,14 +171,16 @@ function matchWaysToPoints(elements, samplePoints) {
   const buckets = samplePoints.map(() => []);
 
   for (const el of elements) {
-    if (!el.geometry?.length) continue;
     const isLanduse = !!el.tags?.landuse;
     const cap = isLanduse ? MAX_LANDUSE_DIST : MAX_HIGHWAY_DIST;
 
-    // Find the nearest sample point using nearest-node distance
+    // Highway ways: use nearest-node distance (requires geom).
+    // Landuse ways: use bbox centroid distance (center only, no geom).
     let minDist = Infinity, nearestIdx = 0;
     for (let i = 0; i < samplePoints.length; i++) {
-      const d = nearestNodeDist(el, samplePoints[i][0], samplePoints[i][1]);
+      const d = isLanduse
+        ? (el.center ? distMetres(samplePoints[i][0], samplePoints[i][1], el.center.lat, el.center.lon) : Infinity)
+        : nearestNodeDist(el, samplePoints[i][0], samplePoints[i][1]);
       if (d < minDist) { minDist = d; nearestIdx = i; }
     }
     if (minDist <= cap) {

@@ -103,11 +103,7 @@ async function processRoute(route) {
 
   const result = await scoreRoute(route, (done, total) => {
     if (total === 0) return;
-    if (done === total) {
-      setLoadingLabel('Scoring segments…');
-    } else {
-      setLoadingLabel(`Querying road data… ${done}/${total}`);
-    }
+    setLoadingLabel(done === total ? 'Scoring segments…' : 'Querying road data…');
   });
 
   const { initMap }       = await import('./ui/map.js');
