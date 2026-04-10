@@ -23,10 +23,14 @@
   --safe-mid:   #5DCAA5;
   --safe-light: #9FE1CB;
 
-  /* Safety — Warning */
-  --warn:     #BA7517;
-  --warn-bg:  #412402;
-  --warn-mid: #EF9F27;
+  /* Safety — Caution (Sentinel design tokens) */
+  --caution:                #92570a;
+  --caution-container:      #ffe0b8;
+  --caution-fixed:          #ffb74d;
+  --caution-surface:        #fff8f0;
+  --on-caution:             #ffffff;
+  --on-caution-container:   #6b3d00;
+  --caution-bg:             #2d1800;  /* dark-theme adaptation for badge backgrounds */
 
   /* Safety — Danger */
   --danger:     #D85A30;
@@ -724,7 +728,7 @@ a:hover { color: var(--safe-light); }
   flex-shrink: 0;
 }
 .source-osm      { background: var(--safe-bg);  color: var(--safe-mid);  border-color: var(--safe); }
-.source-inferred { background: var(--warn-bg);  color: var(--warn-mid);  border-color: var(--warn); }
+.source-inferred { background: var(--caution-bg); color: var(--caution-fixed); border-color: var(--caution); }
 .source-sim      { background: var(--s4);       color: var(--muted);     border-color: var(--border2); }
 
 .detail-street {

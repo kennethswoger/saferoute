@@ -5,7 +5,7 @@ const RING_CIRC = 2 * Math.PI * RING_R; // ≈ 339.3
 
 const TIER_CSS_COLOR = {
   safe:   'var(--safe)',
-  warn:   'var(--warn-mid)',
+  warn:   'var(--caution-fixed)',
   danger: 'var(--danger)',
 };
 
@@ -20,7 +20,7 @@ const FACTORS = [
 // ── Helpers ────────────────────────────────────────────────────────────────────
 function scoreColor(score) {
   if (score >= 75) return 'var(--safe)';
-  if (score >= 50) return 'var(--warn-mid)';
+  if (score >= 50) return 'var(--caution-fixed)';
   return 'var(--danger)';
 }
 
