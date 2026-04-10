@@ -129,7 +129,10 @@ function resolveRoadAttrs(mid, osmTags, idx, osmFailed) {
     const roadType   = osmTags.highway;
     const speedLimit = parseSpeed(osmTags.maxspeed) ?? SPEED_DEFAULTS[roadType] ?? 35;
     const width      = parseWidth(osmTags.width, roadType);
-    return { roadType, speedLimit, width, source: 'osm', streetName: osmTags.name ?? null, surface: osmTags.surface ?? null };
+    // landuse_inferred = highway was synthesised from a residential landuse polygon,
+    // not a direct highway way — show as Inferred rather than OSM in the UI.
+    const source     = osmTags.landuse_inferred ? 'inferred' : 'osm';
+    return { roadType, speedLimit, width, source, streetName: osmTags.name ?? null, surface: osmTags.surface ?? null };
   }
   // Total failure or partial miss — residential is the safest default for cycling routes
   return { roadType: 'residential', speedLimit: SPEED_DEFAULTS.residential, width: WIDTH_DEFAULTS.residential, source: 'simulated', streetName: null, surface: null };
