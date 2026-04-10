@@ -16,11 +16,14 @@ const OVERPASS_ENDPOINTS = [
   'https://overpass.kumi.systems/api/interpreter',
   'https://overpass-api.de/api/interpreter',
 ];
-const BATCH_TIMEOUT  = 30000; // ms client-side timeout for the single batch request
-const SERVER_TIMEOUT = 25;    // seconds — Overpass [timeout:N] directive
-const MAX_QUERIES    = 25;    // sample points per route (fewer = smaller query)
-const QUERY_RADIUS    = 15;   // metres radius around each sample point
-const MAX_CENTER_DIST = 120;  // metres — ignore ways whose bbox centroid is farther than this
+const BATCH_TIMEOUT   = 30000; // ms client-side timeout for the single batch request
+const SERVER_TIMEOUT  = 25;    // seconds — Overpass [timeout:N] directive
+const MAX_QUERIES     = 25;    // sample points per route (fewer = smaller query)
+const QUERY_RADIUS    = 25;    // metres radius around each sample point
+const LANDUSE_RADIUS  = 100;   // metres — larger radius for residential landuse polygons
+const MAX_HIGHWAY_DIST = 50;   // metres — max nearest-node distance for highway ways
+const MAX_LANDUSE_DIST = 200;  // metres — max nearest-node distance for landuse polygons
+const RETRY_DELAY     = 4000;  // ms — pause before single retry on total failure
 
 // ── Speed normalisation ────────────────────────────────────────────────────────
 export function parseSpeed(raw) {
@@ -96,14 +99,19 @@ function distMetres(lat1, lon1, lat2, lon2) {
 
 // ── Build a single batched Overpass QL union query ─────────────────────────────
 // Each sample point becomes one `way(around:R,lat,lon)[filters]` clause.
-// `out tags center` returns each way's tags + bounding-box centroid so we
-// can match ways back to their nearest sample point.
+// `out tags geom` returns each way's tags + full node geometry so we can
+// use nearest-node distance instead of bbox centroid for matching.
 function buildBatchQuery(points) {
-  const filters = `["highway"]["highway"!~"motorway_link|trunk_link|footway|steps|pedestrian"]`;
-  const unions  = points
-    .map(([lat, lon]) => `  way(around:${QUERY_RADIUS},${lat},${lon})${filters};`)
+  const highwayFilter = `["highway"]["highway"!~"motorway_link|trunk_link|footway|steps|pedestrian"]`;
+  const highwayClauses = points
+    .map(([lat, lon]) => `  way(around:${QUERY_RADIUS},${lat},${lon})${highwayFilter};`)
     .join('\n');
-  return `[out:json][timeout:${SERVER_TIMEOUT}];\n(\n${unions}\n);\nout tags center;`;
+  // Residential landuse polygons tell us "this area is a neighbourhood" even when
+  // no highway way falls within the tighter query radius of the sample point.
+  const landuseClauses = points
+    .map(([lat, lon]) => `  way(around:${LANDUSE_RADIUS},${lat},${lon})[landuse=residential];`)
+    .join('\n');
+  return `[out:json][timeout:${SERVER_TIMEOUT}];\n(\n${highwayClauses}\n${landuseClauses}\n);\nout tags geom;`;
 }
 
 // ── Fire the batch query, racing both endpoints simultaneously ─────────────────
@@ -130,31 +138,41 @@ async function fetchBatch(points) {
   return await Promise.any(attempts); // throws AggregateError only if ALL fail
 }
 
+// ── Nearest-node distance from a way's geometry to a query point ──────────────
+// `out geom` returns el.geometry as an array of { lat, lon } nodes.
+// Using the nearest node rather than the bbox centroid prevents long roads
+// (e.g. Lee Blvd) from bleeding into adjacent residential intersections whose
+// centroid happens to land closer to the sample point than the residential road.
+function nearestNodeDist(el, lat, lon) {
+  const nodes = el.geometry;
+  if (!nodes?.length) return Infinity;
+  let min = Infinity;
+  for (const node of nodes) {
+    const d = distMetres(lat, lon, node.lat, node.lon);
+    if (d < min) min = d;
+  }
+  return min;
+}
+
 // ── Match returned ways back to sample points ──────────────────────────────────
-// Overpass `out center` gives each way's bounding-box centroid. We assign
-// every returned way to the nearest sample point (nearest-neighbour), then
-// pick the best-ranked way for each sample point.
-//
-// This is more robust than a fixed MATCH_RADIUS because it works regardless
-// of how long individual road segments are in OSM.
+// For each returned way, compute the nearest-node distance to every sample
+// point and assign it to the sample point it is physically closest to,
+// subject to a hard cap so ways that are just far away get discarded.
 function matchWaysToPoints(elements, samplePoints) {
-  // Build one bucket per sample point, tracking distance alongside the element
   const buckets = samplePoints.map(() => []);
 
   for (const el of elements) {
-    if (!el.center) continue;
+    if (!el.geometry?.length) continue;
+    const isLanduse = !!el.tags?.landuse;
+    const cap = isLanduse ? MAX_LANDUSE_DIST : MAX_HIGHWAY_DIST;
+
+    // Find the nearest sample point using nearest-node distance
     let minDist = Infinity, nearestIdx = 0;
     for (let i = 0; i < samplePoints.length; i++) {
-      const d = distMetres(
-        samplePoints[i][0], samplePoints[i][1],
-        el.center.lat,      el.center.lon,
-      );
+      const d = nearestNodeDist(el, samplePoints[i][0], samplePoints[i][1]);
       if (d < minDist) { minDist = d; nearestIdx = i; }
     }
-    // Only include ways whose centroid is plausibly close to the sample point.
-    // Long roads (e.g. Switzer St) have centroids far from any given sample —
-    // capping here prevents them from bleeding into nearby residential segments.
-    if (minDist <= MAX_CENTER_DIST) {
+    if (minDist <= cap) {
       buckets[nearestIdx].push({ el, dist: minDist });
     }
   }
@@ -162,30 +180,52 @@ function matchWaysToPoints(elements, samplePoints) {
   return buckets.map(group => {
     if (!group.length) return null;
 
-    // Sort: closest way wins. Within 12m of each other, prefer lower HIGHWAY_RANK
-    // (cycling-friendlier road). This stops a distant tertiary from overriding
-    // a nearby residential that the cyclist is actually on.
-    const PROXIMITY_BAND = 12; // metres
-    group.sort((a, b) => {
-      const band = Math.abs(a.dist - b.dist) <= PROXIMITY_BAND;
-      if (band) {
-        const ra = HIGHWAY_RANK.indexOf(a.el.tags?.highway ?? '');
-        const rb = HIGHWAY_RANK.indexOf(b.el.tags?.highway ?? '');
-        return (ra === -1 ? 99 : ra) - (rb === -1 ? 99 : rb);
-      }
-      return a.dist - b.dist;
-    });
+    // Split: highway ways vs landuse context ways
+    const highwayGroup = group.filter(({ el }) => el.tags?.highway);
 
-    const tags = group[0].el?.tags ?? null;
-    if (!tags) return null;
-    return {
-      highway:  tags.highway  ?? null,
-      maxspeed: tags.maxspeed ?? null,
-      width:    tags.width    ?? null,
-      cycleway: tags.cycleway ?? null,
-      surface:  tags.surface  ?? null,
-      lanes:    tags.lanes    ?? null,
-    };
+    if (highwayGroup.length) {
+      // Sort: closest way wins. Within 12m prefer cycling-friendlier road type.
+      const PROXIMITY_BAND = 12;
+      highwayGroup.sort((a, b) => {
+        const band = Math.abs(a.dist - b.dist) <= PROXIMITY_BAND;
+        if (band) {
+          const ra = HIGHWAY_RANK.indexOf(a.el.tags?.highway ?? '');
+          const rb = HIGHWAY_RANK.indexOf(b.el.tags?.highway ?? '');
+          return (ra === -1 ? 99 : ra) - (rb === -1 ? 99 : rb);
+        }
+        return a.dist - b.dist;
+      });
+      const tags = highwayGroup[0].el?.tags ?? null;
+      if (!tags) return null;
+      return {
+        highway:  tags.highway  ?? null,
+        maxspeed: tags.maxspeed ?? null,
+        width:    tags.width    ?? null,
+        cycleway: tags.cycleway ?? null,
+        surface:  tags.surface  ?? null,
+        lanes:    tags.lanes    ?? null,
+        name:     tags.name     ?? null,
+      };
+    }
+
+    // No highway way found — if the area is tagged residential in OSM, infer it.
+    // Houses lining a street → landuse=residential polygon nearby → safe to assume
+    // the road is a residential 25 mph street even without a direct highway hit.
+    const inResidentialArea = group.some(({ el }) => el.tags?.landuse === 'residential');
+    if (inResidentialArea) {
+      return {
+        highway:          'residential',
+        maxspeed:         null,
+        width:            null,
+        cycleway:         null,
+        surface:          null,
+        lanes:            null,
+        name:             null,
+        landuse_inferred: true,
+      };
+    }
+
+    return null;
   });
 }
 
@@ -231,11 +271,21 @@ export async function fetchRoadData(points, onProgress) {
       onProgress?.(0, samplePts.length);
 
       let json;
-      try {
-        json = await fetchBatch(uncachedPts);
-      } catch {
-        console.warn('[SafeRoute] Overpass batch failed — all endpoints timed out or errored. Falling back to simulated data.');
-        return null;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          if (attempt > 0) {
+            console.warn(`[SafeRoute] Overpass batch failed, retrying in ${RETRY_DELAY / 1000}s…`);
+            onProgress?.(0, samplePts.length);
+            await new Promise(r => setTimeout(r, RETRY_DELAY));
+          }
+          json = await fetchBatch(uncachedPts);
+          break;
+        } catch {
+          if (attempt === 1) {
+            console.warn('[SafeRoute] Overpass batch failed after retry — falling back to simulated data.');
+            return null;
+          }
+        }
       }
 
       const freshResults = matchWaysToPoints(json.elements ?? [], uncachedPts);
