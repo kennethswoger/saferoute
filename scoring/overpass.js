@@ -15,14 +15,12 @@ import { WIDTH_DEFAULTS } from './profiles.js';
 const OVERPASS_ENDPOINTS = [
   'https://overpass.kumi.systems/api/interpreter',
   'https://overpass-api.de/api/interpreter',
-  'https://overpass.openstreetmap.fr/api/interpreter',
-  'https://overpass.openstreetmap.ru/api/interpreter',
 ];
 const BATCH_TIMEOUT   = 30000; // ms client-side timeout for the single batch request
 const SERVER_TIMEOUT  = 25;    // seconds — Overpass [timeout:N] directive
 const MAX_QUERIES     = 15;    // sample points per route (fewer = smaller query)
 const QUERY_RADIUS    = 25;    // metres radius around each sample point
-const MAX_HIGHWAY_DIST = 50;   // metres — max nearest-node distance for highway ways
+const MAX_CENTER_DIST  = 50;   // metres — max centroid distance for highway ways (tighter than default to reduce bleed)
 const RETRY_DELAY     = 4000;  // ms — pause before single retry on total failure
 
 // ── Speed normalisation ────────────────────────────────────────────────────────
@@ -87,16 +85,14 @@ function distMetres(lat1, lon1, lat2, lon2) {
 }
 
 // ── Build a single batched Overpass QL query ───────────────────────────────────
-// Highway ways only with `out tags geom` for nearest-node distance matching.
-// Landuse inference was removed to halve request count and reduce 504 pressure
-// on public Overpass servers; the neighbor inference pass covers most of what
-// landuse was providing.
+// `out tags center` returns bbox centroid only — much lighter than full geometry.
+// A tight MAX_CENTER_DIST cap (50m) reduces centroid bleed from long roads.
 function buildBatchQuery(points) {
   const filter  = `["highway"]["highway"!~"motorway_link|trunk_link|footway|steps|pedestrian"]`;
   const clauses = points
     .map(([lat, lon]) => `  way(around:${QUERY_RADIUS},${lat},${lon})${filter};`)
     .join('\n');
-  return `[out:json][timeout:${SERVER_TIMEOUT}];\n(\n${clauses}\n);\nout tags geom;`;
+  return `[out:json][timeout:${SERVER_TIMEOUT}];\n(\n${clauses}\n);\nout tags center;`;
 }
 
 // ── Fire the batch query, racing all endpoints simultaneously ──────────────────
@@ -121,22 +117,6 @@ async function fetchBatch(points) {
   return await Promise.any(attempts); // throws AggregateError only if ALL fail
 }
 
-// ── Nearest-node distance from a way's geometry to a query point ──────────────
-// `out geom` returns el.geometry as an array of { lat, lon } nodes.
-// Using the nearest node rather than the bbox centroid prevents long roads
-// (e.g. Lee Blvd) from bleeding into adjacent residential intersections whose
-// centroid happens to land closer to the sample point than the residential road.
-function nearestNodeDist(el, lat, lon) {
-  const nodes = el.geometry;
-  if (!nodes?.length) return Infinity;
-  let min = Infinity;
-  for (const node of nodes) {
-    const d = distMetres(lat, lon, node.lat, node.lon);
-    if (d < min) min = d;
-  }
-  return min;
-}
-
 // ── Match returned ways back to sample points ──────────────────────────────────
 // For each returned way, compute the nearest-node distance to every sample
 // point and assign it to the sample point it is physically closest to,
@@ -145,14 +125,14 @@ function matchWaysToPoints(elements, samplePoints) {
   const buckets = samplePoints.map(() => []);
 
   for (const el of elements) {
-    if (!el.geometry?.length) continue;
+    if (!el.center) continue;
 
     let minDist = Infinity, nearestIdx = 0;
     for (let i = 0; i < samplePoints.length; i++) {
-      const d = nearestNodeDist(el, samplePoints[i][0], samplePoints[i][1]);
+      const d = distMetres(samplePoints[i][0], samplePoints[i][1], el.center.lat, el.center.lon);
       if (d < minDist) { minDist = d; nearestIdx = i; }
     }
-    if (minDist <= MAX_HIGHWAY_DIST) {
+    if (minDist <= MAX_CENTER_DIST) {
       buckets[nearestIdx].push({ el, dist: minDist });
     }
   }
