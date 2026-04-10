@@ -44,17 +44,17 @@ Each road segment is scored 0–100 across five factors:
 | 35–49 | Risky | Red |
 | 0–34 | Avoid | Red |
 
-OSM data is fetched via a single batched Overpass union query covering up to 25 evenly-spaced sample points per route, using nearest-node geometry matching to avoid long collector roads bleeding into adjacent residential streets. Results are cached in `sessionStorage` so subsequent loads for the same area are instant.
+OSM data is fetched via a single batched Overpass union query covering up to 15 evenly-spaced sample points per route. Results are cached in `sessionStorage` so subsequent loads for the same area are instant.
 
 **Data source tiers** (shown as badges in the segment detail panel):
 
 | Badge | Meaning |
 |---|---|
 | OSM | Road attributes matched directly from OpenStreetMap |
-| Inferred | No direct OSM highway hit — attributes inherited from the nearest OSM neighbor segment, or synthesized from a nearby `landuse=residential` polygon |
+| Inferred | No direct OSM highway hit — attributes inherited from the nearest OSM neighbor segment |
 | Simulated | OSM unavailable — defaults to residential road profile |
 
-When Overpass is fully unavailable the engine falls back to residential defaults for all segments rather than risk misclassification.
+**A note on Overpass reliability:** SafeRoute queries the public Overpass API, which is a free community-run service. During peak hours these servers can be slow or return timeout errors (504). The app automatically retries once before falling back to simulated data. If you see all-simulated results, waiting a minute and re-uploading usually resolves it — the servers recover quickly. Subsequent loads of the same route area are served from the local session cache and skip the API entirely.
 
 ---
 
