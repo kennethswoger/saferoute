@@ -38,14 +38,26 @@
   --danger-mid: #F0997B;
 
   /* Typography */
-  --font-display: 'Syne', sans-serif;
-  --font-body:    'DM Sans', sans-serif;
+  --font-display: 'Space Grotesk', sans-serif;
+  --font-body:    'Inter', sans-serif;
+  --font-label:   'Lexend', sans-serif;
   --font-mono:    'DM Mono', monospace;
+
+  /* Sentinel primary palette */
+  --primary:                #506600;
+  --primary-container:      #d1ff41;
+  --primary-fixed:          #c3f400;
+  --primary-fixed-dim:      #abd600;
+  --on-primary:             #ffffff;
+  --on-primary-fixed:       #161e00;
+  --on-primary-container:   #5c7400;
+  --inverse-primary:        #abd600;
 
   /* Radii */
   --r-sm: 6px;
   --r-md: 12px;
   --r-lg: 16px;
+  --r-full: 9999px;
 }
 
 /* ── Light mode token overrides ────────────────────────────────────────────── */
@@ -112,7 +124,6 @@ a:hover { color: var(--safe-light); }
   align-items: center;
   gap: 0.875rem;
   padding: 1.25rem 2rem;
-  border-bottom: 1px solid var(--border);
   background: var(--s1);
 }
 
@@ -139,10 +150,10 @@ a:hover { color: var(--safe-light); }
 }
 
 .tagline {
-  font-family: var(--font-mono);
+  font-family: var(--font-label);
   font-size: 0.7rem;
   color: var(--muted);
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
@@ -225,25 +236,25 @@ a:hover { color: var(--safe-light); }
 
 .btn-upload {
   margin-top: 0.25rem;
-  padding: 0.55rem 1.5rem;
-  background: var(--safe);
-  color: #fff;
-  font-family: var(--font-body);
+  padding: 0.6rem 1.75rem;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-container) 100%);
+  color: var(--on-primary-fixed);
+  font-family: var(--font-label);
   font-weight: 500;
   font-size: 0.9rem;
-  border-radius: var(--r-sm);
+  border-radius: var(--r-md);
   cursor: pointer;
-  transition: background 0.15s;
+  transition: opacity 0.15s, transform 0.1s;
   user-select: none;
+  border: none;
 }
 
-.btn-upload:hover { background: var(--safe-mid); color: var(--bg); }
+.btn-upload:hover { opacity: 0.92; transform: translateY(-1px); }
 
 .drop-hint {
-  font-family: var(--font-mono);
+  font-family: var(--font-label);
   font-size: 0.72rem;
   color: var(--dim);
-  letter-spacing: 0.02em;
 }
 
 .btn-demo {
@@ -252,7 +263,7 @@ a:hover { color: var(--safe-light); }
   border: 1px solid var(--border2);
   border-radius: var(--r-sm);
   padding: 0.45rem 1.1rem;
-  font-family: var(--font-body);
+  font-family: var(--font-label);
   font-size: 0.82rem;
   color: var(--muted);
   cursor: pointer;
@@ -283,7 +294,7 @@ a:hover { color: var(--safe-light); }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 .loading-label {
-  font-family: var(--font-mono);
+  font-family: var(--font-label);
   font-size: 0.85rem;
   color: var(--muted);
 }
@@ -316,7 +327,6 @@ a:hover { color: var(--safe-light); }
   top: 1rem;
   border-radius: var(--r-lg);
   overflow: hidden;
-  border: 1px solid var(--border2);
 }
 
 #map {
@@ -375,19 +385,19 @@ a:hover { color: var(--safe-light); }
 
 .sr-tt-score {
   font-family: var(--font-display);
-  font-weight: 800;
+  font-weight: 700;
   font-size: 1.4rem;
   line-height: 1;
 }
 
 .sr-tt-sep {
-  font-family: var(--font-mono);
+  font-family: var(--font-label);
   font-size: 0.7rem;
   color: var(--muted);
 }
 
 .sr-tt-meta {
-  font-family: var(--font-mono);
+  font-family: var(--font-label);
   font-size: 0.7rem;
   color: var(--muted);
   margin-bottom: 2px;
@@ -428,7 +438,7 @@ a:hover { color: var(--safe-light); }
   border: 1px solid var(--border2);
   border-radius: var(--r-sm);
   padding: 0.35rem 0.9rem;
-  font-family: var(--font-mono);
+  font-family: var(--font-label);
   font-size: 0.72rem;
   color: var(--muted);
   cursor: pointer;
@@ -442,7 +452,7 @@ a:hover { color: var(--safe-light); }
   border: 1px solid var(--border2);
   border-radius: var(--r-sm);
   padding: 0.35rem 0.9rem;
-  font-family: var(--font-mono);
+  font-family: var(--font-label);
   font-size: 0.72rem;
   color: var(--muted);
   cursor: pointer;
@@ -454,18 +464,18 @@ a:hover { color: var(--safe-light); }
 .btn-share--copied { color: var(--safe) !important; border-color: var(--safe) !important; }
 
 /* ── Shared card ─────────────────────────────────────────────────────────────── */
+/* No-Line Rule: depth via tonal background shift, not borders */
 .card {
   background: var(--s1);
-  border: 1px solid var(--border);
   border-radius: var(--r-lg);
   padding: 1.25rem 1.5rem;
 }
 
 .card-title {
-  font-family: var(--font-mono);
+  font-family: var(--font-label);
   font-size: 0.7rem;
   font-weight: 500;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted);
   margin-bottom: 1rem;
@@ -581,6 +591,7 @@ a:hover { color: var(--safe-light); }
 }
 
 .factor-label {
+  font-family: var(--font-label);
   font-size: 0.82rem;
   color: var(--text);
 }
@@ -648,13 +659,12 @@ a:hover { color: var(--safe-light); }
   padding: 0.6rem 0.75rem;
   background: var(--s2);
   border-radius: var(--r-md);
-  border: 1px solid var(--border);
   cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
+  transition: background 0.15s;
 }
 
-.hazard-item:hover { background: var(--s3); border-color: var(--border2); }
-.hazard-item.seg-active { background: var(--s3); border-color: var(--border3); }
+.hazard-item:hover { background: var(--s3); }
+.hazard-item.seg-active { background: var(--s3); }
 
 .hazard-expand {
   display: none;
@@ -709,10 +719,10 @@ a:hover { color: var(--safe-light); }
 }
 
 .seg-table th {
-  font-family: var(--font-mono);
+  font-family: var(--font-label);
   font-size: 0.65rem;
   font-weight: 500;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--muted);
   text-align: left;
@@ -763,13 +773,13 @@ a:hover { color: var(--safe-light); }
 }
 
 .source-badge {
-  font-family: var(--font-mono);
+  font-family: var(--font-label);
   font-size: 0.68rem;
   font-weight: 500;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   padding: 0.15rem 0.45rem;
-  border-radius: var(--r-sm);
+  border-radius: var(--r-full);
   border: 1px solid;
   flex-shrink: 0;
 }
@@ -810,7 +820,7 @@ a:hover { color: var(--safe-light); }
 /* ── Footer ─────────────────────────────────────────────────────────────────── */
 .footer {
   padding: 1rem 2rem;
-  border-top: 1px solid var(--border);
+  background: var(--s1);
   text-align: center;
   font-size: 0.72rem;
   color: var(--dim);
