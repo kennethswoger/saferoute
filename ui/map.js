@@ -69,6 +69,7 @@ export function initMap(segments) {
     segMeta    = [];
 
     for (const seg of segments) {
+      const segIdx = seg.index;
       const line = L.polyline(seg.points, {
         color:     segmentColor(seg),
         weight:    segmentWeight(seg),
@@ -78,6 +79,25 @@ export function initMap(segments) {
       });
       line.bindTooltip(buildTooltip(seg), {
         sticky: true, className: 'sr-tooltip', offset: [12, 0],
+      });
+      line.on('click', e => {
+        L.DomEvent.stopPropagation(e); // prevent map click → clearFocus firing
+
+        const panel  = document.getElementById('resultsPanel');
+        const segRow = panel?.querySelector(`.seg-row[data-seg-idx="${segIdx}"]`);
+
+        if (segRow?.classList.contains('seg-active')) {
+          clearFocus();
+          return;
+        }
+
+        focusSegment(segIdx);
+
+        if (panel) {
+          panel.querySelectorAll('[data-seg-idx]').forEach(el => el.classList.remove('seg-active'));
+          panel.querySelectorAll(`[data-seg-idx="${segIdx}"]`).forEach(el => el.classList.add('seg-active'));
+          segRow?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
       });
       polylines.push(line);
       segMeta.push({ tierColor: seg.tierColor });

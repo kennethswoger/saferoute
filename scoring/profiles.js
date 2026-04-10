@@ -4,7 +4,7 @@
 export const ROAD_PROFILES = {
   cycleway:    { trafficScore: 95, infraScore: 98, surfaceScore: 90 },
   path:        { trafficScore: 92, infraScore: 88, surfaceScore: 65 },
-  residential: { trafficScore: 72, infraScore: 55, surfaceScore: 80 },
+  residential: { trafficScore: 90, infraScore: 65, surfaceScore: 80 },
   service:     { trafficScore: 80, infraScore: 40, surfaceScore: 60 },
   tertiary:    { trafficScore: 60, infraScore: 45, surfaceScore: 75 },
   secondary:   { trafficScore: 42, infraScore: 35, surfaceScore: 70 },

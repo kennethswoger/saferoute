@@ -574,6 +574,7 @@ a:hover { color: var(--safe-light); }
 .hazard-item {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.75rem;
   padding: 0.6rem 0.75rem;
   background: var(--s2);
@@ -585,6 +586,13 @@ a:hover { color: var(--safe-light); }
 
 .hazard-item:hover { background: var(--s3); border-color: var(--border2); }
 .hazard-item.seg-active { background: var(--s3); border-color: var(--border3); }
+
+.hazard-expand {
+  display: none;
+  width: 100%;
+  padding-top: 0.1rem;
+}
+.hazard-item.seg-active .hazard-expand { display: block; }
 
 .hazard-score {
   font-family: var(--font-display);
@@ -655,6 +663,65 @@ a:hover { color: var(--safe-light); }
 .seg-row { cursor: pointer; }
 .seg-row:hover td { background: var(--s2); }
 .seg-row.seg-active td { background: var(--s3); }
+
+.seg-row-end { display: flex; align-items: center; justify-content: space-between; }
+
+.seg-chevron {
+  color: var(--muted);
+  font-style: normal;
+  display: inline-block;
+  transition: transform 0.2s ease, color 0.15s;
+  margin-left: 0.5rem;
+  line-height: 1;
+}
+.seg-row.seg-active .seg-chevron { transform: rotate(90deg); color: var(--text); }
+
+/* ── Segment detail row ─────────────────────────────────────────────────── */
+.seg-detail { display: none; }
+.seg-row.seg-active + .seg-detail { display: table-row; }
+
+.seg-detail td {
+  padding: 0.45rem 1rem 0.7rem;
+  background: var(--s3);
+  border-bottom: 1px solid var(--border);
+}
+
+.seg-detail-inner {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.source-badge {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 0.15rem 0.45rem;
+  border-radius: var(--r-sm);
+  border: 1px solid;
+  flex-shrink: 0;
+}
+.source-osm      { background: var(--safe-bg);  color: var(--safe-mid);  border-color: var(--safe); }
+.source-inferred { background: var(--warn-bg);  color: var(--warn-mid);  border-color: var(--warn); }
+.source-sim      { background: var(--s4);       color: var(--muted);     border-color: var(--border2); }
+
+.detail-street {
+  font-size: 0.82rem;
+  color: var(--text);
+}
+.detail-unnamed { color: var(--muted); }
+
+.detail-surface {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--muted);
+  background: var(--s4);
+  padding: 0.1rem 0.35rem;
+  border-radius: var(--r-sm);
+}
 
 .seg-score {
   font-family: var(--font-display);

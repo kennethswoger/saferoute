@@ -31,13 +31,12 @@ function totalDistance(points) {
 }
 
 // ── Seeded deterministic road classifier ──────────────────────────────────────
-// Rounds to a ~100m grid so consecutive nearby points share a road type,
-// then hashes to pick consistently from ROAD_WEIGHTS.
-function coordHash(lat, lon) {
-  // Snap to ~100m grid to keep adjacent points on the same "road"
+// idx is mixed in so segments at similar coordinates don't all collapse to
+// the same hash bucket (geographic bias observed for certain US regions).
+function coordHash(lat, lon, idx) {
   const gLat = Math.round(lat * 1000);
   const gLon = Math.round(lon * 1000);
-  let h = (Math.imul(gLat, 0x16561EDC) ^ Math.imul(gLon, 0x7A3BC5F7)) >>> 0;
+  let h = (Math.imul(gLat, 0x16561EDC) ^ Math.imul(gLon, 0x7A3BC5F7) ^ Math.imul(idx + 1, 0xC4CEB9FE)) >>> 0;
   h ^= h >>> 13;
   h  = Math.imul(h, 0x85EBCA6B) >>> 0;
   h ^= h >>> 11;
@@ -46,8 +45,8 @@ function coordHash(lat, lon) {
   return (h >>> 0) / 0x100000000; // [0, 1)
 }
 
-function classifyRoadType(lat, lon) {
-  const v = coordHash(lat, lon);
+function classifyRoadType(lat, lon, idx = 0) {
+  const v = coordHash(lat, lon, idx);
   return (ROAD_WEIGHTS.find(w => v < w.cum) ?? ROAD_WEIGHTS[ROAD_WEIGHTS.length - 1]).type;
 }
 
@@ -55,8 +54,8 @@ function classifyRoadType(lat, lon) {
 function scoreWidth(meters) {
   if (meters >= 12) return 95;
   if (meters >= 8)  return 78;
-  if (meters >= 6)  return 62;
-  if (meters >= 4)  return 45;
+  if (meters >= 6)  return 72;
+  if (meters >= 3)  return 55; // dedicated cycling path / narrow lane
   return 30;
 }
 
@@ -123,18 +122,20 @@ function groupIntoSegments(points) {
 
 // ── Resolve road attributes for a segment ─────────────────────────────────────
 // Uses OSM tags when available, falls back to simulated classifier.
-function resolveRoadAttrs(mid, osmTags) {
+// osmFailed = true when Overpass returned nothing at all (total API failure);
+// in that case default to residential rather than risk hash-bucket bias.
+function resolveRoadAttrs(mid, osmTags, idx, osmFailed) {
   if (osmTags?.highway) {
     const roadType   = osmTags.highway;
     const speedLimit = parseSpeed(osmTags.maxspeed) ?? SPEED_DEFAULTS[roadType] ?? 35;
     const width      = parseWidth(osmTags.width, roadType);
-    return { roadType, speedLimit, width, source: 'osm' };
+    // landuse_inferred = highway was synthesised from a residential landuse polygon,
+    // not a direct highway way — show as Inferred rather than OSM in the UI.
+    const source     = osmTags.landuse_inferred ? 'inferred' : 'osm';
+    return { roadType, speedLimit, width, source, streetName: osmTags.name ?? null, surface: osmTags.surface ?? null };
   }
-  // Simulated fallback
-  const roadType   = classifyRoadType(mid[0], mid[1]);
-  const speedLimit = SPEED_DEFAULTS[roadType] ?? 35;
-  const width      = WIDTH_DEFAULTS[roadType] ?? 6;
-  return { roadType, speedLimit, width, source: 'simulated' };
+  // Total failure or partial miss — residential is the safest default for cycling routes
+  return { roadType: 'residential', speedLimit: SPEED_DEFAULTS.residential, width: WIDTH_DEFAULTS.residential, source: 'simulated', streetName: null, surface: null };
 }
 
 // ── Main export ────────────────────────────────────────────────────────────────
@@ -146,12 +147,14 @@ export async function scoreRoute(route, onProgress) {
   const midpoints = groups.map(pts => pts[Math.floor(pts.length / 2)]);
   const osmData   = await fetchRoadData(midpoints, onProgress);
 
+  const osmFailed = osmData === null;
+
   const segments = groups.map((pts, i) => {
     const dist = totalDistance(pts);
     const mid  = pts[Math.floor(pts.length / 2)];
 
-    const { roadType, speedLimit, width, source } =
-      resolveRoadAttrs(mid, osmData?.[i] ?? null);
+    const { roadType, speedLimit, width, source, streetName, surface } =
+      resolveRoadAttrs(mid, osmData?.[i] ?? null, i, osmFailed);
 
     const { score, factors } = scoreSegment(roadType, speedLimit, width);
     const tier = getTier(score);
@@ -169,16 +172,59 @@ export async function scoreRoute(route, onProgress) {
       tierColor: tier.color,
       factors,
       source,
+      streetName,
+      surface,
     };
   });
+
+  // ── Neighbor inference pass ────────────────────────────────────────────────
+  // Simulated segments sandwiched between OSM segments inherit road type and
+  // speed from the nearest OSM neighbor on either side. This covers the common
+  // case where a midpoint GPS coordinate misses its road centroid by a few
+  // metres but the segments on each side of the gap came back from OSM.
+  for (let i = 0; i < segments.length; i++) {
+    if (segments[i].source !== 'simulated') continue;
+
+    let left = null, right = null;
+    for (let j = i - 1; j >= 0; j--) {
+      if (segments[j].source === 'osm') { left = segments[j]; break; }
+    }
+    for (let j = i + 1; j < segments.length; j++) {
+      if (segments[j].source === 'osm') { right = segments[j]; break; }
+    }
+
+    // Pick the nearer neighbor; if equidistant prefer left
+    const neighbor = (left && right)
+      ? (i - left.index <= right.index - i ? left : right)
+      : (left ?? right);
+
+    if (!neighbor) continue;
+
+    const { score, factors } = scoreSegment(neighbor.roadType, neighbor.speedLimit, neighbor.width);
+    const tier = getTier(score);
+    segments[i] = {
+      ...segments[i],
+      roadType:   neighbor.roadType,
+      speedLimit: neighbor.speedLimit,
+      width:      neighbor.width,
+      score,
+      factors,
+      tier:       tier.label,
+      tierColor:  tier.color,
+      source:     'inferred',
+      streetName: null,   // never inherit neighbor's street name — different road
+    };
+  }
 
   const totalDist = segments.reduce((s, sg) => s + sg.dist, 0);
   const overall   = Math.round(
     segments.reduce((s, sg) => s + sg.score * (sg.dist / totalDist), 0)
   );
 
-  const osmCount = segments.filter(s => s.source === 'osm').length;
-  console.log(`[SafeRoute] Scored ${segments.length} segments — ${osmCount} from OSM, ${segments.length - osmCount} simulated`);
+  const osmCount      = segments.filter(s => s.source === 'osm').length;
+  const inferredCount = segments.filter(s => s.source === 'inferred').length;
+  const simCount      = segments.length - osmCount - inferredCount;
+  console.log(`[SafeRoute] Scored ${segments.length} segments — ${osmCount} OSM, ${inferredCount} inferred, ${simCount} simulated`);
 
   return {
     name,
