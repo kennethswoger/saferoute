@@ -782,8 +782,23 @@ a:hover { color: var(--safe-light); }
 
 .flagged-row:last-child { margin-bottom: 0; }
 .flagged-row:hover { background: var(--s3); }
-.flagged-row.seg-active { background: var(--s3); }
+.flagged-row.seg-active { background: var(--s3); flex-wrap: wrap; }
 .flagged-row.seg-active .seg-chevron { transform: rotate(90deg); color: var(--text); }
+
+/* Hidden rows: invisible until map click activates them */
+.flagged-row--hidden { display: none; }
+.flagged-row--hidden.seg-active { display: flex; }
+
+/* Container for all hidden rows — no visual chrome, just a DOM home */
+.seg-hidden-pool { display: contents; }
+
+/* Expand detail — shown when row is active */
+.flagged-expand {
+  display: none;
+  width: 100%;
+  padding-top: 0.4rem;
+}
+.flagged-row.seg-active .flagged-expand { display: block; }
 
 .seg-flag-name {
   font-family: var(--font-mono);

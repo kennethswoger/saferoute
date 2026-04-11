@@ -169,31 +169,47 @@ function buildSegmentSummary(segments) {
       </div>`;
   }
 
-  // Flagged segments: score < 70 only
-  const flagged = segments.filter(s => s.score < 70).sort((a, b) => a.score - b.score);
-  let flaggedHTML;
+  // Build a row for every segment — flagged ones visible, others hidden
+  // Hidden rows surface when the map focuses them (seg-active class)
+  function segRow(s, hidden = false) {
+    const color      = scoreColor(s.score);
+    const nameStr    = s.streetName ?? s.roadType;
+    const osmBadge   = s.source === 'osm'      ? `<span class="source-badge source-osm">OSM</span>`
+                     : s.source === 'inferred' ? `<span class="source-badge source-inferred">Inferred</span>`
+                     :                           `<span class="source-badge source-sim">Simulated</span>`;
+    const streetSpan = s.streetName
+      ? `<span class="detail-street">${s.streetName}</span>`
+      : `<span class="detail-street detail-unnamed">${s.roadType}</span>`;
+    const surfaceStr = s.surface ? `<span class="detail-surface">${s.surface}</span>` : '';
+    return `
+      <div class="flagged-row${hidden ? ' flagged-row--hidden' : ''}" data-seg-idx="${s.index}">
+        <span class="seg-score" style="color:${color}">${s.score}</span>
+        <span class="seg-flag-name">${nameStr}</span>
+        <span class="seg-flag-meta">${s.speedLimit}&thinsp;mph · ${s.width}m · ${fmtDist(s.dist)}</span>
+        <span class="seg-flag-tier" style="color:${color}">${s.tier}</span>
+        <span class="seg-chevron">›</span>
+        <div class="flagged-expand">
+          <div class="seg-detail-inner">${osmBadge}${streetSpan}${surfaceStr}</div>
+        </div>
+      </div>`;
+  }
 
+  const flagged  = segments.filter(s => s.score < 70).sort((a, b) => a.score - b.score);
+  const unflagged = segments.filter(s => s.score >= 70);
+
+  let flaggedHTML;
   if (flagged.length === 0) {
     flaggedHTML = `<p class="seg-clean">No flagged segments — this route is clean</p>`;
   } else {
-    const rows = flagged.map(s => {
-      const color   = scoreColor(s.score);
-      const nameStr = s.streetName ?? s.roadType;
-      return `
-        <div class="flagged-row" data-seg-idx="${s.index}">
-          <span class="seg-score" style="color:${color}">${s.score}</span>
-          <span class="seg-flag-name">${nameStr}</span>
-          <span class="seg-flag-meta">${s.speedLimit}&thinsp;mph · ${s.width}m · ${fmtDist(s.dist)}</span>
-          <span class="seg-flag-tier" style="color:${color}">${s.tier}</span>
-          <span class="seg-chevron">›</span>
-        </div>`;
-    }).join('');
     flaggedHTML = `
       <div class="seg-flag-list">
         <p class="seg-flag-header">Flagged segments <span class="seg-count">${flagged.length}</span></p>
-        ${rows}
+        ${flagged.map(s => segRow(s, false)).join('')}
       </div>`;
   }
+
+  // Hidden rows for all non-flagged segments — invisible until map activates them
+  const hiddenRows = unflagged.map(s => segRow(s, true)).join('');
 
   return `
     <div class="card segments-card">
@@ -201,6 +217,7 @@ function buildSegmentSummary(segments) {
       ${strip}
       ${summaryHTML}
       ${flaggedHTML}
+      <div class="seg-hidden-pool">${hiddenRows}</div>
     </div>`;
 }
 
