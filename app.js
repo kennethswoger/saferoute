@@ -93,8 +93,23 @@ async function handleFile(file) {
   }
 }
 
+// ── Retry support ─────────────────────────────────────────────────────────────
+let _lastRoute = null;
+
+export async function retryRoute() {
+  if (!_lastRoute) return;
+  setState('loading');
+  setLoadingLabel('Querying road data…');
+  try {
+    await processRoute(_lastRoute);
+  } catch (err) {
+    showError(err.message ?? 'Something went wrong.');
+  }
+}
+
 // ── Process parsed route ───────────────────────────────────────────────────────
 async function processRoute(route) {
+  _lastRoute = route;
   console.log(`[SafeRoute] Parsed "${route.name}" — ${route.points.length} points (${route.fileType})`);
 
   setLoadingLabel('Querying road data…');

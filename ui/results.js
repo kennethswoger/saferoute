@@ -221,6 +221,30 @@ function buildSegmentSummary(segments) {
     </div>`;
 }
 
+// ── Data quality banner ───────────────────────────────────────────────────────
+function buildDataQualityBanner(segments) {
+  const total    = segments.length;
+  const simCount = segments.filter(s => s.source === 'simulated').length;
+  const simPct   = simCount / total;
+
+  if (simPct < 0.5) return ''; // majority has real OSM data — no banner needed
+
+  const allSim = simPct === 1;
+  const msg    = allSim
+    ? 'Road data unavailable — all scores are estimated defaults, not real road data.'
+    : `Road data was limited — ${Math.round(simPct * 100)}% of segments used estimated defaults.`;
+
+  return `
+    <div class="data-quality-banner" id="dataQualityBanner">
+      <span class="dq-icon">⚠</span>
+      <div class="dq-body">
+        <span class="dq-msg">${msg}</span>
+        <span class="dq-hint">The Overpass API may be overloaded. Scores may not reflect real road conditions.</span>
+      </div>
+      <button class="dq-retry" id="retryBtn">Try again</button>
+    </div>`;
+}
+
 // ── Animate in ────────────────────────────────────────────────────────────────
 function animateResults() {
   // Score ring — animate dashoffset after paint
@@ -258,6 +282,8 @@ export function renderResults(result) {
       <button class="btn-share" id="shareBtn">Share</button>
     </div>
 
+    ${buildDataQualityBanner(segments)}
+
     <div class="card score-card">
       ${buildRing(overall, tierColor)}
       <div class="score-meta">
@@ -276,6 +302,10 @@ export function renderResults(result) {
 
   document.getElementById('backBtn').addEventListener('click', () => {
     import('../app.js').then(({ setState }) => setState('idle'));
+  });
+
+  document.getElementById('retryBtn')?.addEventListener('click', () => {
+    import('../app.js').then(({ retryRoute }) => retryRoute());
   });
 
   document.getElementById('shareBtn').addEventListener('click', async () => {
