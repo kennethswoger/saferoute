@@ -121,7 +121,7 @@ export function initMap(segments) {
         L.DomEvent.stopPropagation(e); // prevent map click → clearFocus firing
 
         const panel  = document.getElementById('resultsPanel');
-        const segRow = panel?.querySelector(`.seg-row[data-seg-idx="${segIdx}"]`);
+        const segRow = panel?.querySelector(`[data-seg-idx="${segIdx}"]`);
 
         if (segRow?.classList.contains('seg-active')) {
           clearFocus();

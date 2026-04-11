@@ -853,7 +853,9 @@ a:hover { color: var(--safe-light); }
 .flagged-expand {
   display: none;
   width: 100%;
-  padding-top: 0.4rem;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border2);
 }
 .flagged-row.seg-active .flagged-expand { display: block; }
 

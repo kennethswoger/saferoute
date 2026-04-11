@@ -181,15 +181,16 @@ function buildSegmentSummary(segments) {
       ? `<span class="detail-street">${s.streetName}</span>`
       : `<span class="detail-street detail-unnamed">${s.roadType}</span>`;
     const surfaceStr = s.surface ? `<span class="detail-surface">${s.surface}</span>` : '';
+    // Speed · width · distance shown only in the expand, not the compact row
+    const detailMeta = `<span class="detail-surface">${s.speedLimit}&thinsp;mph · ${s.width}m · ${fmtDist(s.dist)}</span>`;
     return `
       <div class="flagged-row${hidden ? ' flagged-row--hidden' : ''}" data-seg-idx="${s.index}">
         <span class="seg-score" style="color:${color}">${s.score}</span>
         <span class="seg-flag-name">${nameStr}</span>
-        <span class="seg-flag-meta">${s.speedLimit}&thinsp;mph · ${s.width}m · ${fmtDist(s.dist)}</span>
         <span class="seg-flag-tier" style="color:${color}">${s.tier}</span>
         <span class="seg-chevron">›</span>
         <div class="flagged-expand">
-          <div class="seg-detail-inner">${osmBadge}${streetSpan}${surfaceStr}</div>
+          <div class="seg-detail-inner">${osmBadge}${streetSpan}${detailMeta}${surfaceStr}</div>
         </div>
       </div>`;
   }
