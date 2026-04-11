@@ -33,7 +33,8 @@ export function focusSegment(idx) {
   if (!map) return;
   polylines.forEach((line, i) => {
     if (i === idx) {
-      line.setStyle({ color: '#FFFFFF', weight: 8, opacity: 1.0 });
+      const isLight = document.documentElement.dataset.theme === 'light';
+      line.setStyle({ color: isLight ? '#161e00' : '#FFFFFF', weight: 8, opacity: 1.0 });
       line.bringToFront();
       map.fitBounds(line.getBounds(), { padding: [60, 60], maxZoom: 17 });
     } else {
