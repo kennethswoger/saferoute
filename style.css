@@ -62,7 +62,7 @@
 
 /* ── Light mode token overrides ────────────────────────────────────────────── */
 [data-theme="light"] {
-  --bg:   #f8f9fa;
+  --bg:   #f0f1f2;
   --s1:   #f3f4f5;
   --s2:   #edeeef;
   --s3:   #e7e8e9;
@@ -237,7 +237,7 @@ a:hover { color: var(--safe-light); }
 .btn-upload {
   margin-top: 0.25rem;
   padding: 0.6rem 1.75rem;
-  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-container) 100%);
+  background: var(--primary-fixed);
   color: var(--on-primary-fixed);
   font-family: var(--font-label);
   font-weight: 500;
