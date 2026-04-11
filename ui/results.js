@@ -121,48 +121,86 @@ function buildHazards(segments) {
     </div>`;
 }
 
-// ── Segment table ──────────────────────────────────────────────────────────────
-function buildSegmentTable(segments) {
-  const rows = segments.map(s => {
-    const color      = scoreColor(s.score);
-    const osmBadge   = s.source === 'osm'      ? `<span class="source-badge source-osm">OSM</span>`
-                     : s.source === 'inferred' ? `<span class="source-badge source-inferred">Inferred</span>`
-                     :                           `<span class="source-badge source-sim">Simulated</span>`;
-    const nameStr    = s.streetName ? `<span class="detail-street">${s.streetName}</span>` : `<span class="detail-street detail-unnamed">—</span>`;
-    const surfaceStr = s.surface    ? `<span class="detail-surface">${s.surface}</span>` : '';
+// ── Route summary card (replaces full segment table) ──────────────────────────
+function buildSegmentSummary(segments) {
+  const total     = segments.length;
+  const safeCnt   = segments.filter(s => s.tierColor === 'safe').length;
+  const warnCnt   = segments.filter(s => s.tierColor === 'warn').length;
+  const dangerCnt = segments.filter(s => s.tierColor === 'danger').length;
 
-    return `
-      <tr class="seg-row" data-seg-idx="${s.index}">
-        <td><span class="seg-score" style="color:${color}">${s.score}</span></td>
-        <td>${tierDot(s.tierColor)} ${s.tier}</td>
-        <td class="mono">${s.roadType}</td>
-        <td class="mono">${s.speedLimit} mph</td>
-        <td class="mono seg-row-end">${fmtDist(s.dist)}<span class="seg-chevron">›</span></td>
-      </tr>
-      <tr class="seg-detail">
-        <td colspan="5">
-          <div class="seg-detail-inner">
-            ${osmBadge}
-            ${nameStr}
-            ${surfaceStr}
-          </div>
-        </td>
-      </tr>`;
-  }).join('');
+  // Proportional color strip — ordered by route tier distribution
+  const safeW   = (safeCnt   / total * 100).toFixed(1);
+  const warnW   = (warnCnt   / total * 100).toFixed(1);
+  const dangerW = (dangerCnt / total * 100).toFixed(1);
+  const strip = `
+    <div class="seg-strip">
+      ${safeCnt   ? `<div class="seg-strip-block seg-strip-safe"   style="width:${safeW}%"></div>`   : ''}
+      ${warnCnt   ? `<div class="seg-strip-block seg-strip-warn"   style="width:${warnW}%"></div>`   : ''}
+      ${dangerCnt ? `<div class="seg-strip-block seg-strip-danger" style="width:${dangerW}%"></div>` : ''}
+    </div>`;
+
+  // Summary line vs tier pills
+  const allSame = safeCnt === total || warnCnt === total || dangerCnt === total;
+  let summaryHTML;
+
+  if (allSame) {
+    // Most common road type
+    const freq = {};
+    segments.forEach(s => { freq[s.roadType] = (freq[s.roadType] ?? 0) + 1; });
+    const topRoad = Object.entries(freq).sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'road';
+    const avgSpeed = Math.round(segments.reduce((n, s) => n + s.speedLimit, 0) / total);
+    const tierLabel = safeCnt === total ? 'Safe' : warnCnt === total ? 'Caution' : 'Avoid';
+    const tierColor = safeCnt === total ? 'var(--safe)' : warnCnt === total ? 'var(--caution-fixed)' : 'var(--danger)';
+    summaryHTML = `
+      <p class="seg-summary-line">
+        <strong>${total}</strong> segments analyzed — all ${topRoad},
+        ${avgSpeed}&thinsp;mph avg, consistently
+        <span style="color:${tierColor};font-weight:500">${tierLabel}</span> throughout
+      </p>`;
+  } else {
+    const safePct   = Math.round(safeCnt   / total * 100);
+    const warnPct   = Math.round(warnCnt   / total * 100);
+    const dangerPct = Math.round(dangerCnt / total * 100);
+    summaryHTML = `
+      <div class="seg-pills">
+        ${safeCnt   ? `<span class="seg-pill seg-pill-safe">Safe ${safePct}%</span>`       : ''}
+        ${warnCnt   ? `<span class="seg-pill seg-pill-warn">Caution ${warnPct}%</span>`   : ''}
+        ${dangerCnt ? `<span class="seg-pill seg-pill-danger">Avoid ${dangerPct}%</span>` : ''}
+      </div>`;
+  }
+
+  // Flagged segments: score < 70 only
+  const flagged = segments.filter(s => s.score < 70).sort((a, b) => a.score - b.score);
+  let flaggedHTML;
+
+  if (flagged.length === 0) {
+    flaggedHTML = `<p class="seg-clean">No flagged segments — this route is clean</p>`;
+  } else {
+    const rows = flagged.map(s => {
+      const color   = scoreColor(s.score);
+      const nameStr = s.streetName ?? s.roadType;
+      return `
+        <div class="flagged-row" data-seg-idx="${s.index}">
+          <span class="seg-score" style="color:${color}">${s.score}</span>
+          <span class="seg-flag-name">${nameStr}</span>
+          <span class="seg-flag-meta">${s.speedLimit}&thinsp;mph · ${s.width}m · ${fmtDist(s.dist)}</span>
+          <span class="seg-flag-tier" style="color:${color}">${s.tier}</span>
+          <span class="seg-chevron">›</span>
+        </div>`;
+    }).join('');
+    flaggedHTML = `
+      <div class="seg-flag-list">
+        <p class="seg-flag-header">Flagged segments <span class="seg-count">${flagged.length}</span></p>
+        ${rows}
+      </div>`;
+  }
 
   return `
     <div class="card segments-card">
-      <h3 class="card-title">All Segments <span class="seg-count">${segments.length}</span></h3>
-      <div class="table-scroll">
-        <table class="seg-table">
-          <thead>
-            <tr>
-              <th>Score</th><th>Tier</th><th>Road</th><th>Speed</th><th>Dist</th>
-            </tr>
-          </thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div>
+      <h3 class="card-title">Route Summary <span class="seg-count">${total}</span></h3>
+      ${strip}
+      ${summaryHTML}
+      ${flaggedHTML}
     </div>`;
 }
 
@@ -214,7 +252,7 @@ export function renderResults(result) {
 
     ${buildFactors(factors)}
     ${buildHazards(segments)}
-    ${buildSegmentTable(segments)}
+    ${buildSegmentSummary(segments)}
   `;
 
   animateResults();

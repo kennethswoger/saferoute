@@ -706,63 +706,115 @@ a:hover { color: var(--safe-light); }
   white-space: nowrap;
 }
 
-/* ── Segment table ───────────────────────────────────────────────────────────── */
-.table-scroll {
-  overflow-x: auto;
-  margin: 0 -0.25rem;
+/* ── Route summary card ──────────────────────────────────────────────────────── */
+.seg-strip {
+  display: flex;
+  height: 6px;
+  border-radius: var(--r-full);
+  overflow: hidden;
+  gap: 2px;
+  margin-bottom: 1.25rem;
 }
 
-.seg-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.8rem;
+.seg-strip-block { border-radius: var(--r-full); }
+.seg-strip-safe   { background: var(--safe); }
+.seg-strip-warn   { background: var(--caution-fixed); }
+.seg-strip-danger { background: var(--danger); }
+
+.seg-summary-line {
+  font-size: 0.875rem;
+  color: var(--text);
+  line-height: 1.6;
+  margin-bottom: 1rem;
 }
 
-.seg-table th {
+.seg-pills {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.seg-pill {
   font-family: var(--font-label);
-  font-size: 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.25rem 0.75rem;
+  border-radius: var(--r-full);
+}
+
+.seg-pill-safe   { background: var(--safe-bg);    color: var(--safe-mid); }
+.seg-pill-warn   { background: var(--caution-bg); color: var(--caution-fixed); }
+.seg-pill-danger { background: var(--danger-bg);  color: var(--danger-mid); }
+
+.seg-clean {
+  font-size: 0.82rem;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.seg-flag-list { margin-top: 0.25rem; }
+
+.seg-flag-header {
+  font-family: var(--font-label);
+  font-size: 0.7rem;
   font-weight: 500;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--muted);
-  text-align: left;
-  padding: 0 0.5rem 0.6rem;
-  border-bottom: 1px solid var(--border);
+  margin-bottom: 0.6rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 
-.seg-table td {
-  padding: 0.55rem 0.5rem;
+.flagged-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--s2);
+  border-radius: var(--r-md);
+  cursor: pointer;
+  transition: background 0.15s;
+  margin-bottom: 0.4rem;
+}
+
+.flagged-row:last-child { margin-bottom: 0; }
+.flagged-row:hover { background: var(--s3); }
+.flagged-row.seg-active { background: var(--s3); }
+.flagged-row.seg-active .seg-chevron { transform: rotate(90deg); color: var(--text); }
+
+.seg-flag-name {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
   color: var(--text);
-  border-bottom: 1px solid var(--border);
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.seg-flag-meta {
+  font-size: 0.72rem;
+  color: var(--muted);
   white-space: nowrap;
 }
 
-.seg-row:last-child td { border-bottom: none; }
-
-.seg-row { cursor: pointer; }
-.seg-row:hover td { background: var(--s2); }
-.seg-row.seg-active td { background: var(--s3); }
-
-.seg-row-end { display: flex; align-items: center; justify-content: space-between; }
+.seg-flag-tier {
+  font-size: 0.72rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
 
 .seg-chevron {
   color: var(--muted);
   font-style: normal;
   display: inline-block;
   transition: transform 0.2s ease, color 0.15s;
-  margin-left: 0.5rem;
+  margin-left: auto;
   line-height: 1;
-}
-.seg-row.seg-active .seg-chevron { transform: rotate(90deg); color: var(--text); }
-
-/* ── Segment detail row ─────────────────────────────────────────────────── */
-.seg-detail { display: none; }
-.seg-row.seg-active + .seg-detail { display: table-row; }
-
-.seg-detail td {
-  padding: 0.45rem 1rem 0.7rem;
-  background: var(--s3);
-  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
 }
 
 .seg-detail-inner {
