@@ -9,13 +9,25 @@ const TILE_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">Open
 let tileLayer = null;
 
 const TIER_COLOR = {
-  safe:   '#1D9E75',
-  warn:   '#ffb74d',
-  danger: '#D85A30',
+  dark: {
+    safe:   '#1D9E75',
+    warn:   '#ffb74d',
+    danger: '#D85A30',
+  },
+  light: {
+    safe:   '#0a6644',   // deeper green — readable on white tiles
+    warn:   '#92570a',   // Sentinel caution token — dark amber
+    danger: '#ba1a1a',   // Sentinel error token — dark red
+  },
 };
 
+function tierColors() {
+  const theme = document.documentElement.dataset.theme ?? 'dark';
+  return TIER_COLOR[theme] ?? TIER_COLOR.dark;
+}
+
 function segmentColor(seg) {
-  return TIER_COLOR[seg.tierColor] ?? '#ffb74d';
+  return tierColors()[seg.tierColor] ?? tierColors().warn;
 }
 
 function segmentWeight(seg) {
@@ -39,7 +51,7 @@ export function focusSegment(idx) {
       map.fitBounds(line.getBounds(), { padding: [60, 60], maxZoom: 17 });
     } else {
       line.setStyle({
-        color:   TIER_COLOR[segMeta[i]?.tierColor] ?? '#ffb74d',
+        color:   tierColors()[segMeta[i]?.tierColor] ?? tierColors().warn,
         weight:  segmentWeight({ tierColor: segMeta[i]?.tierColor }),
         opacity: 0.22,
       });
@@ -51,7 +63,7 @@ export function focusSegment(idx) {
 export function clearFocus() {
   polylines.forEach((line, i) => {
     line.setStyle({
-      color:   TIER_COLOR[segMeta[i]?.tierColor] ?? '#ffb74d',
+      color:   tierColors()[segMeta[i]?.tierColor] ?? tierColors().warn,
       weight:  segmentWeight({ tierColor: segMeta[i]?.tierColor }),
       opacity: 0.88,
     });
@@ -158,7 +170,7 @@ export function initMap(segments) {
 
 // ── Tooltip content ────────────────────────────────────────────────────────────
 function buildTooltip(seg) {
-  const tierColor = { safe: '#1D9E75', warn: '#ffb74d', danger: '#D85A30' }[seg.tierColor] ?? '#6B8070';
+  const tierColor = tierColors()[seg.tierColor] ?? '#6B8070';
   return `
     <div class="sr-tt-row">
       <span class="sr-tt-score" style="color:${tierColor}">${seg.score}</span>
@@ -193,4 +205,6 @@ export function setTileTheme(theme) {
   tileLayer = L.tileLayer(url, { attribution: TILE_ATTR, subdomains: 'abcd', maxZoom: 19 });
   tileLayer.addTo(map);
   tileLayer.bringToBack();
+  // Repaint polylines with theme-appropriate colors
+  clearFocus();
 }
