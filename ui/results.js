@@ -265,7 +265,7 @@ function animateResults() {
 }
 
 // ── Main export ────────────────────────────────────────────────────────────────
-export function renderResults(result) {
+export async function renderResults(result) {
   const panel = document.getElementById('resultsPanel');
   const { name, fileType, overall, tier, totalDist, segments } = result;
 
@@ -299,6 +299,10 @@ export function renderResults(result) {
     ${buildSegmentSummary(segments)}
   `;
 
+  // Resolve map functions once — avoids async yield inside the click handler
+  // which caused a race: a second invocation could see seg-active mid-toggle
+  const { focusSegment, clearFocus } = await import('./map.js');
+
   animateResults();
 
   document.getElementById('backBtn').addEventListener('click', () => {
@@ -325,13 +329,12 @@ export function renderResults(result) {
     }, 2000);
   });
 
-  // ── Segment / hazard → map focus ───────────────────────────────────────────
-  panel.addEventListener('click', async e => {
+  // ── Segment / hazard → map focus (synchronous — no async yield) ───────────
+  panel.addEventListener('click', e => {
     const target = e.target.closest('[data-seg-idx]');
     if (!target) return;
 
     const idx = parseInt(target.dataset.segIdx, 10);
-    const { focusSegment, clearFocus } = await import('./map.js');
 
     if (target.classList.contains('seg-active')) {
       clearFocus();
