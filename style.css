@@ -23,10 +23,14 @@
   --safe-mid:   #5DCAA5;
   --safe-light: #9FE1CB;
 
-  /* Safety — Warning */
-  --warn:     #BA7517;
-  --warn-bg:  #412402;
-  --warn-mid: #EF9F27;
+  /* Safety — Caution (Sentinel design tokens) */
+  --caution:                #92570a;
+  --caution-container:      #ffe0b8;
+  --caution-fixed:          #ffb74d;
+  --caution-surface:        #fff8f0;
+  --on-caution:             #ffffff;
+  --on-caution-container:   #6b3d00;
+  --caution-bg:             #2d1800;  /* dark-theme adaptation for badge backgrounds */
 
   /* Safety — Danger */
   --danger:     #D85A30;
@@ -34,14 +38,58 @@
   --danger-mid: #F0997B;
 
   /* Typography */
-  --font-display: 'Syne', sans-serif;
-  --font-body:    'DM Sans', sans-serif;
+  --font-display: 'Space Grotesk', sans-serif;
+  --font-body:    'Inter', sans-serif;
+  --font-label:   'Lexend', sans-serif;
   --font-mono:    'DM Mono', monospace;
+
+  /* Sentinel primary palette */
+  --primary:                #506600;
+  --primary-container:      #d1ff41;
+  --primary-fixed:          #c3f400;
+  --primary-fixed-dim:      #abd600;
+  --on-primary:             #ffffff;
+  --on-primary-fixed:       #161e00;
+  --on-primary-container:   #5c7400;
+  --inverse-primary:        #abd600;
 
   /* Radii */
   --r-sm: 6px;
   --r-md: 12px;
   --r-lg: 16px;
+  --r-full: 9999px;
+}
+
+/* ── Light mode token overrides ────────────────────────────────────────────── */
+[data-theme="light"] {
+  --bg:   #f0f1f2;
+  --s1:   #f3f4f5;
+  --s2:   #edeeef;
+  --s3:   #e7e8e9;
+  --s4:   #e1e3e4;
+
+  --border:  rgba(0,0,0,0.07);
+  --border2: rgba(0,0,0,0.12);
+  --border3: rgba(0,0,0,0.20);
+
+  --text:  #191c1d;
+  --muted: #757a60;
+  --dim:   #c5c9ac;
+
+  --safe:       #1D9E75;
+  --safe-bg:    #d1ffe8;
+  --safe-mid:   #1D9E75;
+  --safe-light: #5DCAA5;
+
+  --caution:              #92570a;
+  --caution-container:    #ffe0b8;
+  --caution-fixed:        #92570a;
+  --caution-bg:           #ffe0b8;
+  --on-caution-container: #6b3d00;
+
+  --danger:     #ba1a1a;
+  --danger-bg:  #ffdad6;
+  --danger-mid: #ba1a1a;
 }
 
 /* ── Reset ──────────────────────────────────────────────────────────────────── */
@@ -73,12 +121,25 @@ a:hover { color: var(--safe-light); }
 /* ── Header ─────────────────────────────────────────────────────────────────── */
 .header {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 0.875rem;
   padding: 1.25rem 2rem;
-  border-bottom: 1px solid var(--border);
   background: var(--s1);
 }
+
+.btn-theme {
+  margin-left: auto;
+  background: none;
+  border: 1px solid var(--border2);
+  border-radius: var(--r-sm);
+  padding: 0.3rem 0.6rem;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--muted);
+  transition: border-color 0.15s, color 0.15s;
+}
+.btn-theme:hover { border-color: var(--border3); color: var(--text); }
 
 .logo {
   font-family: var(--font-display);
@@ -89,10 +150,10 @@ a:hover { color: var(--safe-light); }
 }
 
 .tagline {
-  font-family: var(--font-mono);
+  font-family: var(--font-label);
   font-size: 0.7rem;
   color: var(--muted);
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
@@ -175,25 +236,25 @@ a:hover { color: var(--safe-light); }
 
 .btn-upload {
   margin-top: 0.25rem;
-  padding: 0.55rem 1.5rem;
-  background: var(--safe);
-  color: #fff;
-  font-family: var(--font-body);
+  padding: 0.6rem 1.75rem;
+  background: var(--primary-fixed);
+  color: var(--on-primary-fixed);
+  font-family: var(--font-label);
   font-weight: 500;
   font-size: 0.9rem;
-  border-radius: var(--r-sm);
+  border-radius: var(--r-md);
   cursor: pointer;
-  transition: background 0.15s;
+  transition: opacity 0.15s, transform 0.1s;
   user-select: none;
+  border: none;
 }
 
-.btn-upload:hover { background: var(--safe-mid); color: var(--bg); }
+.btn-upload:hover { opacity: 0.92; transform: translateY(-1px); }
 
 .drop-hint {
-  font-family: var(--font-mono);
+  font-family: var(--font-label);
   font-size: 0.72rem;
   color: var(--dim);
-  letter-spacing: 0.02em;
 }
 
 .btn-demo {
@@ -202,7 +263,7 @@ a:hover { color: var(--safe-light); }
   border: 1px solid var(--border2);
   border-radius: var(--r-sm);
   padding: 0.45rem 1.1rem;
-  font-family: var(--font-body);
+  font-family: var(--font-label);
   font-size: 0.82rem;
   color: var(--muted);
   cursor: pointer;
@@ -233,7 +294,7 @@ a:hover { color: var(--safe-light); }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 .loading-label {
-  font-family: var(--font-mono);
+  font-family: var(--font-label);
   font-size: 0.85rem;
   color: var(--muted);
 }
@@ -266,7 +327,6 @@ a:hover { color: var(--safe-light); }
   top: 1rem;
   border-radius: var(--r-lg);
   overflow: hidden;
-  border: 1px solid var(--border2);
 }
 
 #map {
@@ -292,7 +352,7 @@ a:hover { color: var(--safe-light); }
 }
 
 .leaflet-control-attribution {
-  background: rgba(10, 14, 12, 0.75) !important;
+  background: color-mix(in srgb, var(--bg) 80%, transparent) !important;
   color: var(--dim) !important;
   font-size: 0.65rem !important;
   backdrop-filter: blur(4px);
@@ -325,19 +385,19 @@ a:hover { color: var(--safe-light); }
 
 .sr-tt-score {
   font-family: var(--font-display);
-  font-weight: 800;
+  font-weight: 700;
   font-size: 1.4rem;
   line-height: 1;
 }
 
 .sr-tt-sep {
-  font-family: var(--font-mono);
+  font-family: var(--font-label);
   font-size: 0.7rem;
   color: var(--muted);
 }
 
 .sr-tt-meta {
-  font-family: var(--font-mono);
+  font-family: var(--font-label);
   font-size: 0.7rem;
   color: var(--muted);
   margin-bottom: 2px;
@@ -378,7 +438,7 @@ a:hover { color: var(--safe-light); }
   border: 1px solid var(--border2);
   border-radius: var(--r-sm);
   padding: 0.35rem 0.9rem;
-  font-family: var(--font-mono);
+  font-family: var(--font-label);
   font-size: 0.72rem;
   color: var(--muted);
   cursor: pointer;
@@ -392,7 +452,7 @@ a:hover { color: var(--safe-light); }
   border: 1px solid var(--border2);
   border-radius: var(--r-sm);
   padding: 0.35rem 0.9rem;
-  font-family: var(--font-mono);
+  font-family: var(--font-label);
   font-size: 0.72rem;
   color: var(--muted);
   cursor: pointer;
@@ -403,19 +463,76 @@ a:hover { color: var(--safe-light); }
 .btn-share:hover { border-color: var(--border3); color: var(--text); }
 .btn-share--copied { color: var(--safe) !important; border-color: var(--safe) !important; }
 
+/* ── Data quality banner ─────────────────────────────────────────────────────── */
+.data-quality-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.9rem 1rem;
+  background: var(--caution-bg);
+  border-radius: var(--r-md);
+  margin-bottom: 0.25rem;
+}
+
+.dq-icon {
+  font-size: 1rem;
+  color: var(--caution-fixed);
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.dq-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.dq-msg {
+  font-family: var(--font-label);
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--on-caution-container);
+}
+
+.dq-hint {
+  font-size: 0.75rem;
+  color: var(--caution);
+  line-height: 1.4;
+}
+
+.dq-retry {
+  flex-shrink: 0;
+  background: var(--caution-fixed);
+  color: var(--on-primary-fixed);
+  font-family: var(--font-label);
+  font-size: 0.75rem;
+  font-weight: 500;
+  border: none;
+  border-radius: var(--r-sm);
+  padding: 0.35rem 0.8rem;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  white-space: nowrap;
+  align-self: center;
+}
+
+.dq-retry:hover { opacity: 0.85; }
+
 /* ── Shared card ─────────────────────────────────────────────────────────────── */
+/* No-Line Rule: depth via tonal background shift, not borders */
 .card {
   background: var(--s1);
-  border: 1px solid var(--border);
   border-radius: var(--r-lg);
   padding: 1.25rem 1.5rem;
 }
 
 .card-title {
-  font-family: var(--font-mono);
+  font-family: var(--font-label);
   font-size: 0.7rem;
   font-weight: 500;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted);
   margin-bottom: 1rem;
@@ -531,6 +648,7 @@ a:hover { color: var(--safe-light); }
 }
 
 .factor-label {
+  font-family: var(--font-label);
   font-size: 0.82rem;
   color: var(--text);
 }
@@ -598,13 +716,12 @@ a:hover { color: var(--safe-light); }
   padding: 0.6rem 0.75rem;
   background: var(--s2);
   border-radius: var(--r-md);
-  border: 1px solid var(--border);
   cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
+  transition: background 0.15s;
 }
 
-.hazard-item:hover { background: var(--s3); border-color: var(--border2); }
-.hazard-item.seg-active { background: var(--s3); border-color: var(--border3); }
+.hazard-item:hover { background: var(--s3); }
+.hazard-item.seg-active { background: var(--s3); }
 
 .hazard-expand {
   display: none;
@@ -646,63 +763,132 @@ a:hover { color: var(--safe-light); }
   white-space: nowrap;
 }
 
-/* ── Segment table ───────────────────────────────────────────────────────────── */
-.table-scroll {
-  overflow-x: auto;
-  margin: 0 -0.25rem;
+/* ── Route summary card ──────────────────────────────────────────────────────── */
+.seg-strip {
+  display: flex;
+  height: 6px;
+  border-radius: var(--r-full);
+  overflow: hidden;
+  gap: 2px;
+  margin-bottom: 1.25rem;
 }
 
-.seg-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.8rem;
+.seg-strip-block { border-radius: var(--r-full); }
+.seg-strip-safe   { background: var(--safe); }
+.seg-strip-warn   { background: var(--caution-fixed); }
+.seg-strip-danger { background: var(--danger); }
+
+.seg-summary-line {
+  font-size: 0.875rem;
+  color: var(--text);
+  line-height: 1.6;
+  margin-bottom: 1rem;
 }
 
-.seg-table th {
-  font-family: var(--font-mono);
-  font-size: 0.65rem;
+.seg-pills {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.seg-pill {
+  font-family: var(--font-label);
+  font-size: 0.75rem;
   font-weight: 500;
-  letter-spacing: 0.08em;
+  padding: 0.25rem 0.75rem;
+  border-radius: var(--r-full);
+}
+
+.seg-pill-safe   { background: var(--safe-bg);    color: var(--safe-mid); }
+.seg-pill-warn   { background: var(--caution-bg); color: var(--caution-fixed); }
+.seg-pill-danger { background: var(--danger-bg);  color: var(--danger-mid); }
+
+.seg-clean {
+  font-size: 0.82rem;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.seg-flag-list { margin-top: 0.25rem; }
+
+.seg-flag-header {
+  font-family: var(--font-label);
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--muted);
-  text-align: left;
-  padding: 0 0.5rem 0.6rem;
-  border-bottom: 1px solid var(--border);
+  margin-bottom: 0.6rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 
-.seg-table td {
-  padding: 0.55rem 0.5rem;
+.flagged-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--s2);
+  border-radius: var(--r-md);
+  cursor: pointer;
+  transition: background 0.15s;
+  margin-bottom: 0.4rem;
+}
+
+.flagged-row:last-child { margin-bottom: 0; }
+.flagged-row:hover { background: var(--s3); }
+.flagged-row.seg-active { background: var(--s3); flex-wrap: wrap; }
+.flagged-row.seg-active .seg-chevron { transform: rotate(90deg); color: var(--text); }
+
+/* Hidden rows: invisible until map click activates them */
+.flagged-row--hidden { display: none; }
+.flagged-row--hidden.seg-active { display: flex; }
+
+/* Container for all hidden rows — no visual chrome, just a DOM home */
+.seg-hidden-pool { display: contents; }
+
+/* Expand detail — shown when row is active */
+.flagged-expand {
+  display: none;
+  width: 100%;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border2);
+}
+.flagged-row.seg-active .flagged-expand { display: block; }
+
+.seg-flag-name {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
   color: var(--text);
-  border-bottom: 1px solid var(--border);
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.seg-flag-meta {
+  font-size: 0.72rem;
+  color: var(--muted);
   white-space: nowrap;
 }
 
-.seg-row:last-child td { border-bottom: none; }
-
-.seg-row { cursor: pointer; }
-.seg-row:hover td { background: var(--s2); }
-.seg-row.seg-active td { background: var(--s3); }
-
-.seg-row-end { display: flex; align-items: center; justify-content: space-between; }
+.seg-flag-tier {
+  font-size: 0.72rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
 
 .seg-chevron {
   color: var(--muted);
   font-style: normal;
   display: inline-block;
   transition: transform 0.2s ease, color 0.15s;
-  margin-left: 0.5rem;
+  margin-left: auto;
   line-height: 1;
-}
-.seg-row.seg-active .seg-chevron { transform: rotate(90deg); color: var(--text); }
-
-/* ── Segment detail row ─────────────────────────────────────────────────── */
-.seg-detail { display: none; }
-.seg-row.seg-active + .seg-detail { display: table-row; }
-
-.seg-detail td {
-  padding: 0.45rem 1rem 0.7rem;
-  background: var(--s3);
-  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
 }
 
 .seg-detail-inner {
@@ -713,18 +899,18 @@ a:hover { color: var(--safe-light); }
 }
 
 .source-badge {
-  font-family: var(--font-mono);
+  font-family: var(--font-label);
   font-size: 0.68rem;
   font-weight: 500;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   padding: 0.15rem 0.45rem;
-  border-radius: var(--r-sm);
+  border-radius: var(--r-full);
   border: 1px solid;
   flex-shrink: 0;
 }
 .source-osm      { background: var(--safe-bg);  color: var(--safe-mid);  border-color: var(--safe); }
-.source-inferred { background: var(--warn-bg);  color: var(--warn-mid);  border-color: var(--warn); }
+.source-inferred { background: var(--caution-bg); color: var(--caution-fixed); border-color: var(--caution); }
 .source-sim      { background: var(--s4);       color: var(--muted);     border-color: var(--border2); }
 
 .detail-street {
@@ -760,7 +946,7 @@ a:hover { color: var(--safe-light); }
 /* ── Footer ─────────────────────────────────────────────────────────────────── */
 .footer {
   padding: 1rem 2rem;
-  border-top: 1px solid var(--border);
+  background: var(--s1);
   text-align: center;
   font-size: 0.72rem;
   color: var(--dim);

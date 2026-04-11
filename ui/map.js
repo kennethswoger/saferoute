@@ -1,16 +1,33 @@
 // ui/map.js — Leaflet map, color-coded segment polylines, start/end markers
 
-const TILE_URL  = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+const TILE_URLS = {
+  dark:  'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+  light: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+};
 const TILE_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
 
+let tileLayer = null;
+
 const TIER_COLOR = {
-  safe:   '#1D9E75',
-  warn:   '#EF9F27',
-  danger: '#D85A30',
+  dark: {
+    safe:   '#1D9E75',
+    warn:   '#ffb74d',
+    danger: '#D85A30',
+  },
+  light: {
+    safe:   '#0a6644',   // deeper green — readable on white tiles
+    warn:   '#92570a',   // Sentinel caution token — dark amber
+    danger: '#ba1a1a',   // Sentinel error token — dark red
+  },
 };
 
+function tierColors() {
+  const theme = document.documentElement.dataset.theme ?? 'dark';
+  return TIER_COLOR[theme] ?? TIER_COLOR.dark;
+}
+
 function segmentColor(seg) {
-  return TIER_COLOR[seg.tierColor] ?? '#EF9F27';
+  return tierColors()[seg.tierColor] ?? tierColors().warn;
 }
 
 function segmentWeight(seg) {
@@ -19,21 +36,40 @@ function segmentWeight(seg) {
   return 6;
 }
 
-let map        = null;
-let layerGroup = null;
-let polylines  = [];   // L.Polyline per segment, indexed by segment order
-let segMeta    = [];   // { tierColor } for style restoration
+let map          = null;
+let layerGroup   = null;
+let polylines    = [];   // L.Polyline per segment, indexed by segment order
+let segMeta      = [];   // { tierColor } for style restoration
+let focusOutline = null; // extra wide polyline rendered behind the focused segment
 
 export function focusSegment(idx) {
   if (!map) return;
+
+  // Remove previous outline
+  if (focusOutline) { layerGroup.removeLayer(focusOutline); focusOutline = null; }
+
+  const isLight = document.documentElement.dataset.theme === 'light';
+
   polylines.forEach((line, i) => {
     if (i === idx) {
-      line.setStyle({ color: '#FFFFFF', weight: 8, opacity: 1.0 });
+      // Outline layer: wide dark halo so the segment pops against any background
+      focusOutline = L.polyline(line.getLatLngs(), {
+        color:    isLight ? '#191c1d' : '#000000',
+        weight:   18,
+        opacity:  isLight ? 0.55 : 0.35,
+        lineCap:  'round',
+        lineJoin: 'round',
+      }).addTo(layerGroup);
+
+      // Bright tier color on top so the route identity is still readable
+      const focusColor = isLight ? tierColors()[segMeta[idx]?.tierColor] ?? tierColors().warn
+                                 : '#FFFFFF';
+      line.setStyle({ color: focusColor, weight: 8, opacity: 1.0 });
       line.bringToFront();
       map.fitBounds(line.getBounds(), { padding: [60, 60], maxZoom: 17 });
     } else {
       line.setStyle({
-        color:   TIER_COLOR[segMeta[i]?.tierColor] ?? '#EF9F27',
+        color:   tierColors()[segMeta[i]?.tierColor] ?? tierColors().warn,
         weight:  segmentWeight({ tierColor: segMeta[i]?.tierColor }),
         opacity: 0.22,
       });
@@ -43,9 +79,10 @@ export function focusSegment(idx) {
 }
 
 export function clearFocus() {
+  if (focusOutline) { layerGroup.removeLayer(focusOutline); focusOutline = null; }
   polylines.forEach((line, i) => {
     line.setStyle({
-      color:   TIER_COLOR[segMeta[i]?.tierColor] ?? '#EF9F27',
+      color:   tierColors()[segMeta[i]?.tierColor] ?? tierColors().warn,
       weight:  segmentWeight({ tierColor: segMeta[i]?.tierColor }),
       opacity: 0.88,
     });
@@ -84,7 +121,7 @@ export function initMap(segments) {
         L.DomEvent.stopPropagation(e); // prevent map click → clearFocus firing
 
         const panel  = document.getElementById('resultsPanel');
-        const segRow = panel?.querySelector(`.seg-row[data-seg-idx="${segIdx}"]`);
+        const segRow = panel?.querySelector(`[data-seg-idx="${segIdx}"]`);
 
         if (segRow?.classList.contains('seg-active')) {
           clearFocus();
@@ -127,9 +164,12 @@ export function initMap(segments) {
   // has real pixel dimensions and Leaflet can request tiles correctly.
   void mapEl.offsetWidth; // force reflow
 
+  const currentTheme = document.documentElement.dataset.theme ?? 'dark';
+  const tileUrl = TILE_URLS[currentTheme] ?? TILE_URLS.dark;
+
   if (mapEl.offsetWidth > 0) {
     map = L.map('map', { zoomControl: true, attributionControl: true });
-    L.tileLayer(TILE_URL, { attribution: TILE_ATTR, subdomains: 'abcd', maxZoom: 19 }).addTo(map);
+    tileLayer = L.tileLayer(tileUrl, { attribution: TILE_ATTR, subdomains: 'abcd', maxZoom: 19 }).addTo(map);
     map.on('click', clearFocus);
     addLayers();
   } else {
@@ -138,7 +178,7 @@ export function initMap(segments) {
       if (mapEl.offsetWidth > 0) {
         ro.disconnect();
         map = L.map('map', { zoomControl: true, attributionControl: true });
-        L.tileLayer(TILE_URL, { attribution: TILE_ATTR, subdomains: 'abcd', maxZoom: 19 }).addTo(map);
+        tileLayer = L.tileLayer(tileUrl, { attribution: TILE_ATTR, subdomains: 'abcd', maxZoom: 19 }).addTo(map);
         map.on('click', clearFocus);
         addLayers();
       }
@@ -149,7 +189,7 @@ export function initMap(segments) {
 
 // ── Tooltip content ────────────────────────────────────────────────────────────
 function buildTooltip(seg) {
-  const tierColor = { safe: '#1D9E75', warn: '#EF9F27', danger: '#D85A30' }[seg.tierColor] ?? '#6B8070';
+  const tierColor = tierColors()[seg.tierColor] ?? '#6B8070';
   return `
     <div class="sr-tt-row">
       <span class="sr-tt-score" style="color:${tierColor}">${seg.score}</span>
@@ -174,4 +214,16 @@ function markerIcon(color, label) {
     html: svg, className: '',
     iconSize: [28, 36], iconAnchor: [14, 36], tooltipAnchor: [14, -36],
   });
+}
+
+// ── Swap tile layer when theme changes ─────────────────────────────────────────
+export function setTileTheme(theme) {
+  if (!map || !tileLayer) return;
+  const url = TILE_URLS[theme] ?? TILE_URLS.dark;
+  tileLayer.remove();
+  tileLayer = L.tileLayer(url, { attribution: TILE_ATTR, subdomains: 'abcd', maxZoom: 19 });
+  tileLayer.addTo(map);
+  tileLayer.bringToBack();
+  // Repaint polylines with theme-appropriate colors
+  clearFocus();
 }
