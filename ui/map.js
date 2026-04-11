@@ -36,17 +36,35 @@ function segmentWeight(seg) {
   return 6;
 }
 
-let map        = null;
-let layerGroup = null;
-let polylines  = [];   // L.Polyline per segment, indexed by segment order
-let segMeta    = [];   // { tierColor } for style restoration
+let map          = null;
+let layerGroup   = null;
+let polylines    = [];   // L.Polyline per segment, indexed by segment order
+let segMeta      = [];   // { tierColor } for style restoration
+let focusOutline = null; // extra wide polyline rendered behind the focused segment
 
 export function focusSegment(idx) {
   if (!map) return;
+
+  // Remove previous outline
+  if (focusOutline) { layerGroup.removeLayer(focusOutline); focusOutline = null; }
+
+  const isLight = document.documentElement.dataset.theme === 'light';
+
   polylines.forEach((line, i) => {
     if (i === idx) {
-      const isLight = document.documentElement.dataset.theme === 'light';
-      line.setStyle({ color: isLight ? '#161e00' : '#FFFFFF', weight: 8, opacity: 1.0 });
+      // Outline layer: wide dark halo so the segment pops against any background
+      focusOutline = L.polyline(line.getLatLngs(), {
+        color:    isLight ? '#191c1d' : '#000000',
+        weight:   18,
+        opacity:  isLight ? 0.55 : 0.35,
+        lineCap:  'round',
+        lineJoin: 'round',
+      }).addTo(layerGroup);
+
+      // Bright tier color on top so the route identity is still readable
+      const focusColor = isLight ? tierColors()[segMeta[idx]?.tierColor] ?? tierColors().warn
+                                 : '#FFFFFF';
+      line.setStyle({ color: focusColor, weight: 8, opacity: 1.0 });
       line.bringToFront();
       map.fitBounds(line.getBounds(), { padding: [60, 60], maxZoom: 17 });
     } else {
@@ -61,6 +79,7 @@ export function focusSegment(idx) {
 }
 
 export function clearFocus() {
+  if (focusOutline) { layerGroup.removeLayer(focusOutline); focusOutline = null; }
   polylines.forEach((line, i) => {
     line.setStyle({
       color:   tierColors()[segMeta[i]?.tierColor] ?? tierColors().warn,
