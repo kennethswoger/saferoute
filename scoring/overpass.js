@@ -16,14 +16,19 @@ const OVERPASS_ENDPOINTS = [
   'https://overpass.kumi.systems/api/interpreter',
   'https://overpass-api.de/api/interpreter',
 ];
-const BATCH_TIMEOUT   = 30000; // ms client-side timeout for the single batch request
-const SERVER_TIMEOUT  = 25;    // seconds — Overpass [timeout:N] directive
-const MAX_QUERIES     = 15;    // sample points per route (fewer = smaller query)
-const QUERY_RADIUS    = 25;    // metres radius around each sample point
-const LANDUSE_RADIUS  = 100;   // metres — larger radius for residential landuse polygons
-const MAX_HIGHWAY_DIST = 50;   // metres — max nearest-node distance for highway ways
-const MAX_LANDUSE_DIST = 200;  // metres — max nearest-node distance for landuse polygons
-const RETRY_DELAY     = 4000;  // ms — pause before single retry on total failure
+const BATCH_TIMEOUT    = 15000; // ms client-side timeout per chunk
+const SERVER_TIMEOUT   = 12;    // seconds — Overpass [timeout:N] directive per chunk
+const MAX_QUERIES      = 15;    // total sample points per route
+const QUERY_RADIUS     = 25;    // metres radius around each sample point
+const LANDUSE_RADIUS   = 100;   // metres — larger radius for residential landuse polygons
+const MAX_HIGHWAY_DIST = 50;    // metres — max nearest-node distance for highway ways
+const MAX_LANDUSE_DIST = 200;   // metres — max nearest-node distance for landuse polygons
+const RETRY_DELAY      = 3000;  // ms — pause before retry on chunk failure
+const CHUNK_SIZE       = 5;     // sample points per Overpass query — smaller batches
+                                 // mean lighter server load and smaller payloads
+const BBOX_PAD         = 0.001; // ~111m — clips returned geom to this box around the
+                                 // chunk's sample points, preventing long roads from
+                                 // returning thousands of nodes outside the area of interest
 
 // ── Speed normalisation ────────────────────────────────────────────────────────
 export function parseSpeed(raw) {
@@ -102,11 +107,24 @@ function distMetres(lat1, lon1, lat2, lon2) {
 // for nearest-node matching) while using the cheaper `out tags center` for
 // landuse polygons (we only need to know if one exists nearby, not its shape).
 function buildHighwayQuery(points) {
-  const filter  = `["highway"]["highway"!~"motorway_link|trunk_link|footway|steps|pedestrian"]`;
+  const filter = `["highway"]["highway"!~"motorway_link|trunk_link|footway|steps|pedestrian"]`;
+
+  // Tight bbox around this chunk's sample points.
+  // `out tags geom(bbox)` clips returned node geometry to this box so long
+  // roads only return their nearby nodes, not their entire geometry.
+  const lats = points.map(([lat]) => lat);
+  const lons = points.map(([, lon]) => lon);
+  const bbox = [
+    (Math.min(...lats) - BBOX_PAD).toFixed(6),
+    (Math.min(...lons) - BBOX_PAD).toFixed(6),
+    (Math.max(...lats) + BBOX_PAD).toFixed(6),
+    (Math.max(...lons) + BBOX_PAD).toFixed(6),
+  ].join(',');
+
   const clauses = points
     .map(([lat, lon]) => `  way(around:${QUERY_RADIUS},${lat},${lon})${filter};`)
     .join('\n');
-  return `[out:json][timeout:${SERVER_TIMEOUT}];\n(\n${clauses}\n);\nout tags geom;`;
+  return `[out:json][timeout:${SERVER_TIMEOUT}];\n(\n${clauses}\n);\nout tags geom(${bbox});`;
 }
 
 function buildLanduseQuery(points) {
@@ -281,32 +299,45 @@ export async function fetchRoadData(points, onProgress) {
     if (uncachedPts.length > 0) {
       onProgress?.(0, samplePts.length);
 
-      let json;
-      for (let attempt = 0; attempt < 2; attempt++) {
-        try {
-          if (attempt > 0) {
-            console.warn(`[SafeRoute] Overpass batch failed, retrying in ${RETRY_DELAY / 1000}s…`);
-            onProgress?.(0, samplePts.length);
-            await new Promise(r => setTimeout(r, RETRY_DELAY));
-          }
-          json = await fetchBatch(uncachedPts);
-          break;
-        } catch {
-          if (attempt === 1) {
-            console.warn('[SafeRoute] Overpass batch failed after retry — falling back to simulated data.');
-            return null;
+      // Split uncached points into chunks and process sequentially.
+      // Each chunk is independent — a failed chunk marks those points as null
+      // without aborting the entire route. Sequential processing keeps per-request
+      // server load low, avoiding the 504s that a single large batch triggers.
+      for (let ci = 0; ci < uncachedPts.length; ci += CHUNK_SIZE) {
+        const chunkPts  = uncachedPts.slice(ci, ci + CHUNK_SIZE);
+        const chunkIdxs = uncachedIdxs.slice(ci, ci + CHUNK_SIZE);
+
+        let json = null;
+        for (let attempt = 0; attempt < 2; attempt++) {
+          try {
+            if (attempt > 0) {
+              console.warn(`[SafeRoute] Chunk ${Math.floor(ci / CHUNK_SIZE) + 1} failed, retrying in ${RETRY_DELAY / 1000}s…`);
+              await new Promise(r => setTimeout(r, RETRY_DELAY));
+            }
+            json = await fetchBatch(chunkPts);
+            break;
+          } catch {
+            if (attempt === 1) {
+              console.warn(`[SafeRoute] Chunk ${Math.floor(ci / CHUNK_SIZE) + 1} failed after retry — affected segments will use fallback data.`);
+            }
           }
         }
+
+        if (json) {
+          const freshResults = matchWaysToPoints(json.elements ?? [], chunkPts);
+          chunkIdxs.forEach((sampleI, freshI) => {
+            const result = freshResults[freshI] ?? null;
+            writeCache(samplePts[sampleI][0], samplePts[sampleI][1], result);
+            tagResults[sampleI] = result;
+          });
+        } else {
+          // Cache nulls so a hard retry (new page load) doesn't re-hit a dead server
+          chunkIdxs.forEach(sampleI => {
+            writeCache(samplePts[sampleI][0], samplePts[sampleI][1], null);
+            tagResults[sampleI] = null;
+          });
+        }
       }
-
-      const freshResults = matchWaysToPoints(json.elements ?? [], uncachedPts);
-
-      // Store results and fill in tagResults
-      uncachedIdxs.forEach((sampleI, freshI) => {
-        const result = freshResults[freshI] ?? null;
-        writeCache(samplePts[sampleI][0], samplePts[sampleI][1], result);
-        tagResults[sampleI] = result;
-      });
     }
 
     onProgress?.(samplePts.length, samplePts.length);
