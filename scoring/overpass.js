@@ -330,13 +330,16 @@ export async function fetchRoadData(points, onProgress) {
           const freshResults = matchWaysToPoints(json.elements ?? [], chunkPts);
           chunkIdxs.forEach((sampleI, freshI) => {
             const result = freshResults[freshI] ?? null;
+            // Only cache results from a successful server response.
+            // null here means "API responded but found no road" — a valid cacheable miss.
             writeCache(samplePts[sampleI][0], samplePts[sampleI][1], result);
             tagResults[sampleI] = result;
           });
         } else {
-          // Cache nulls so a hard retry (new page load) doesn't re-hit a dead server
+          // Server error / timeout — do NOT cache. These points will retry on the
+          // next load or "Try again" click. Caching null here would poison the cache
+          // and suppress all future requests for this session.
           chunkIdxs.forEach(sampleI => {
-            writeCache(samplePts[sampleI][0], samplePts[sampleI][1], null);
             tagResults[sampleI] = null;
           });
         }
