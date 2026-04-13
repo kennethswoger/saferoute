@@ -11,10 +11,13 @@
 
 import { WIDTH_DEFAULTS } from './profiles.js';
 
-// Tried simultaneously — first valid response wins.
+// All endpoints raced simultaneously — first valid response wins.
+// More mirrors = higher probability one responds before a server-side timeout.
 const OVERPASS_ENDPOINTS = [
   'https://overpass.kumi.systems/api/interpreter',
   'https://overpass-api.de/api/interpreter',
+  'https://overpass.private.coffee/api/interpreter',
+  'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
 ];
 const BATCH_TIMEOUT    = 15000; // ms client-side timeout per chunk
 const SERVER_TIMEOUT   = 12;    // seconds — Overpass [timeout:N] directive per chunk
@@ -23,7 +26,7 @@ const QUERY_RADIUS     = 25;    // metres radius around each sample point
 const LANDUSE_RADIUS   = 100;   // metres — larger radius for residential landuse polygons
 const MAX_HIGHWAY_DIST = 50;    // metres — max nearest-node distance for highway ways
 const MAX_LANDUSE_DIST = 200;   // metres — max nearest-node distance for landuse polygons
-const RETRY_DELAY      = 3000;  // ms — pause before retry on chunk failure
+const RETRY_DELAY      = 6000;  // ms — pause before retry on chunk failure
 const CHUNK_SIZE       = 5;     // sample points per Overpass query — smaller batches
                                  // mean lighter server load and smaller payloads
 const BBOX_PAD         = 0.001; // ~111m — clips returned geom to this box around the
