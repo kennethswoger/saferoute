@@ -17,7 +17,7 @@ const OVERPASS_ENDPOINTS = [
   'https://overpass.kumi.systems/api/interpreter',
   'https://overpass-api.de/api/interpreter',
   'https://overpass.private.coffee/api/interpreter',
-  'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
+  'https://overpass.osm.ch/api/interpreter',
 ];
 const BATCH_TIMEOUT    = 15000; // ms client-side timeout per chunk
 const SERVER_TIMEOUT   = 12;    // seconds — Overpass [timeout:N] directive per chunk
