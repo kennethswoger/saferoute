@@ -1,0 +1,14 @@
+{
+  "type": "module",
+  "scripts": {
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.44.0",
+    "happy-dom": "^14.0.0",
+    "vitest": "^2.0.0"
+  }
+}
