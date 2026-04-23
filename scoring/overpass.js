@@ -13,17 +13,19 @@ import { WIDTH_DEFAULTS } from './profiles.js';
 
 // Tried simultaneously — first valid response wins.
 const OVERPASS_ENDPOINTS = [
-  'https://overpass.kumi.systems/api/interpreter',
+  'https://lz4.overpass-api.de/api/interpreter',
   'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass.openstreetmap.fr/api/interpreter',
 ];
-const BATCH_TIMEOUT   = 30000; // ms client-side timeout for the single batch request
-const SERVER_TIMEOUT  = 25;    // seconds — Overpass [timeout:N] directive
+const BATCH_TIMEOUT   = 20000; // ms client-side timeout per endpoint
+const SERVER_TIMEOUT  = 15;    // seconds — Overpass [timeout:N] directive
 const MAX_QUERIES     = 15;    // sample points per route (fewer = smaller query)
 const QUERY_RADIUS    = 25;    // metres radius around each sample point
 const LANDUSE_RADIUS  = 100;   // metres — larger radius for residential landuse polygons
 const MAX_HIGHWAY_DIST = 50;   // metres — max nearest-node distance for highway ways
 const MAX_LANDUSE_DIST = 200;  // metres — max nearest-node distance for landuse polygons
-const RETRY_DELAY     = 4000;  // ms — pause before single retry on total failure
+const RETRY_DELAY     = 2000;  // ms — pause before single retry on total failure
 
 // ── Speed normalisation ────────────────────────────────────────────────────────
 export function parseSpeed(raw) {
@@ -116,26 +118,45 @@ function buildLanduseQuery(points) {
   return `[out:json][timeout:${SERVER_TIMEOUT}];\n(\n${clauses}\n);\nout tags center;`;
 }
 
-// ── Fire a query against both endpoints, first valid response wins ─────────────
+// ── Fire a query against all endpoints, first valid response wins ──────────────
+// Cancels all losing requests as soon as a winner resolves.
 async function fetchQuery(query) {
   const body = `data=${encodeURIComponent(query)}`;
-  const attempts = OVERPASS_ENDPOINTS.map(endpoint => {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), BATCH_TIMEOUT);
-    return fetch(endpoint, {
+  const controllers = OVERPASS_ENDPOINTS.map(() => new AbortController());
+  const timers = controllers.map((c, i) =>
+    setTimeout(() => c.abort(), BATCH_TIMEOUT)
+  );
+
+  const cleanup = () => {
+    controllers.forEach((c, i) => { clearTimeout(timers[i]); c.abort(); });
+  };
+
+  const attempts = OVERPASS_ENDPOINTS.map((endpoint, i) =>
+    fetch(endpoint, {
       method:  'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body,
-      signal:  controller.signal,
+      signal:  controllers[i].signal,
     })
     .then(async res => {
-      clearTimeout(timer);
+      clearTimeout(timers[i]);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return res.json();
+      const json = await res.json();
+      // Reject if server returned a remark indicating a timeout/error
+      if (json.remark && !json.elements?.length) throw new Error(`Overpass remark: ${json.remark}`);
+      return json;
     })
-    .catch(err => { clearTimeout(timer); throw err; });
-  });
-  return await Promise.any(attempts);
+    .catch(err => { clearTimeout(timers[i]); throw err; })
+  );
+
+  try {
+    const result = await Promise.any(attempts);
+    cleanup(); // cancel remaining in-flight requests
+    return result;
+  } catch (err) {
+    cleanup();
+    throw err;
+  }
 }
 
 async function fetchBatch(points) {
@@ -299,12 +320,19 @@ export async function fetchRoadData(points, onProgress) {
         }
       }
 
-      const freshResults = matchWaysToPoints(json.elements ?? [], uncachedPts);
+      const elements = json.elements ?? [];
+      const freshResults = matchWaysToPoints(elements, uncachedPts);
 
-      // Store results and fill in tagResults
+      // Only cache null (API miss) when the query actually returned data.
+      // If elements is empty the API may have silently failed — don't poison
+      // the cache so that "Try again" can issue a real request next time.
+      const queryReturnedData = elements.length > 0;
+
       uncachedIdxs.forEach((sampleI, freshI) => {
         const result = freshResults[freshI] ?? null;
-        writeCache(samplePts[sampleI][0], samplePts[sampleI][1], result);
+        if (result !== null || queryReturnedData) {
+          writeCache(samplePts[sampleI][0], samplePts[sampleI][1], result);
+        }
         tagResults[sampleI] = result;
       });
     }
