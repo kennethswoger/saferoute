@@ -1,0 +1,36 @@
+{
+  "elements": [
+    {
+      "type": "way",
+      "id": 1001,
+      "geometry": [
+        { "lat": 39.1000, "lon": -94.5 },
+        { "lat": 39.1004, "lon": -94.5 },
+        { "lat": 39.1008, "lon": -94.5 },
+        { "lat": 39.1012, "lon": -94.5 },
+        { "lat": 39.1016, "lon": -94.5 }
+      ],
+      "tags": {
+        "highway": "primary",
+        "maxspeed": "35 mph",
+        "name": "Test Avenue"
+      }
+    },
+    {
+      "type": "way",
+      "id": 1002,
+      "geometry": [
+        { "lat": 39.1020, "lon": -94.5 },
+        { "lat": 39.1024, "lon": -94.5 },
+        { "lat": 39.1028, "lon": -94.5 },
+        { "lat": 39.1032, "lon": -94.5 },
+        { "lat": 39.1036, "lon": -94.5 }
+      ],
+      "tags": {
+        "highway": "residential",
+        "maxspeed": "25 mph",
+        "name": "Mock Street"
+      }
+    }
+  ]
+}
