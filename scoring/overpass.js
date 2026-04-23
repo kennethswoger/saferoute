@@ -48,8 +48,11 @@ export function parseWidth(raw, highwayType) {
 }
 
 // ── sessionStorage cache ───────────────────────────────────────────────────────
+// Bump this version any time the cache schema or query logic changes so stale
+// entries (including poisoned nulls from API failures) are automatically ignored.
+const CACHE_VERSION = 2;
 function cacheKey(lat, lon) {
-  return `sr_osm_${Math.round(lat * 1000)}_${Math.round(lon * 1000)}`;
+  return `sr_osm_v${CACHE_VERSION}_${Math.round(lat * 1000)}_${Math.round(lon * 1000)}`;
 }
 
 // Returns undefined  → not in cache (needs a fresh fetch)
