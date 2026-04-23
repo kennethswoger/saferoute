@@ -98,14 +98,6 @@ let _lastRoute = null;
 
 export async function retryRoute() {
   if (!_lastRoute) return;
-  // Clear OSM cache so failed server responses don't block the retry.
-  // Successful hits (real road data) are intentionally wiped too — a retry
-  // implies the user suspects data quality, so a fresh fetch is appropriate.
-  try {
-    for (const key of [...Object.keys(localStorage)]) {
-      if (key.startsWith('sr_osm_')) localStorage.removeItem(key);
-    }
-  } catch { /* private browsing — ignore */ }
   setState('loading');
   setLoadingLabel('Querying road data…');
   try {
