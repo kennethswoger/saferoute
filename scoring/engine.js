@@ -51,7 +51,7 @@ function classifyRoadType(lat, lon, idx = 0) {
 }
 
 // ── Factor scoring functions ───────────────────────────────────────────────────
-export function scoreWidth(meters) {
+function scoreWidth(meters) {
   if (meters >= 12) return 95;
   if (meters >= 8)  return 78;
   if (meters >= 6)  return 72;
@@ -59,7 +59,7 @@ export function scoreWidth(meters) {
   return 30;
 }
 
-export function scoreSpeed(mph) {
+function scoreSpeed(mph) {
   if (mph <= 15) return 96;
   if (mph <= 25) return 84;
   if (mph <= 30) return 72;
@@ -70,7 +70,7 @@ export function scoreSpeed(mph) {
 }
 
 // ── Segment scorer ─────────────────────────────────────────────────────────────
-export function scoreSegment(roadType, speedLimit, width) {
+function scoreSegment(roadType, speedLimit, width) {
   const profile = ROAD_PROFILES[roadType] ?? ROAD_PROFILES.tertiary;
   const factors = {
     width:   scoreWidth(width),
@@ -94,7 +94,7 @@ export function scoreSegment(roadType, speedLimit, width) {
 // Minimum 2 points per segment; never splits a pair.
 const SEGMENT_TARGET_MILES = 0.15;
 
-export function groupIntoSegments(points) {
+function groupIntoSegments(points) {
   if (points.length < 2) throw new Error('Route needs at least 2 GPS points.');
 
   const segments = [];
@@ -124,7 +124,7 @@ export function groupIntoSegments(points) {
 // Uses OSM tags when available, falls back to simulated classifier.
 // osmFailed = true when Overpass returned nothing at all (total API failure);
 // in that case default to residential rather than risk hash-bucket bias.
-export function resolveRoadAttrs(mid, osmTags, idx, osmFailed) {
+function resolveRoadAttrs(mid, osmTags, idx, osmFailed) {
   if (osmTags?.highway) {
     const roadType   = osmTags.highway;
     const speedLimit = parseSpeed(osmTags.maxspeed) ?? SPEED_DEFAULTS[roadType] ?? 35;

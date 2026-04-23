@@ -240,7 +240,7 @@ function buildDataQualityBanner(segments) {
       <span class="dq-icon">⚠</span>
       <div class="dq-body">
         <span class="dq-msg">${msg}</span>
-        <span class="dq-hint">The Overpass API may be overloaded or rate-limited. Scores may not reflect real road conditions.</span>
+        <span class="dq-hint">The Overpass API may be overloaded. Scores may not reflect real road conditions.</span>
       </div>
       <button class="dq-retry" id="retryBtn">Try again</button>
     </div>`;
