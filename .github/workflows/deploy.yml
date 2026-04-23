@@ -1,4 +1,4 @@
-name: CI / Deploy / Tests
+name: CI / Deploy 
 
 on:
   push:
@@ -16,7 +16,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test:
+  regression_tests:
     runs-on: ubuntu-latest
 
     steps:
@@ -38,12 +38,12 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
-      - name: Run E2E tests
+      - name: Run E2E regression tests
         run: npm run test:e2e
 
   deploy:
     if: github.ref == 'refs/heads/main'
-    needs: test
+    needs: regression_tests
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
