@@ -97,6 +97,45 @@ Then open `http://localhost:8080`.
 
 ---
 
+## Testing
+
+Install dev dependencies first:
+
+```bash
+npm install
+```
+
+### Unit tests (Vitest)
+
+Runs in [happy-dom](https://github.com/capricorn86/happy-dom) — no browser required.
+
+```bash
+npm test          # watch mode
+npm run test:run  # single pass (CI)
+```
+
+| File | What it covers |
+|---|---|
+| `tests/parser.test.js` | GPX / TCX parsing — coordinates, route name, edge cases |
+| `tests/profiles.test.js` | `getTier` thresholds, `ROAD_PROFILES` / weight / default tables |
+| `tests/engine.test.js` | `scoreWidth`, `scoreSpeed`, `scoreSegment`, `groupIntoSegments`, `resolveRoadAttrs` |
+| `tests/overpass.test.js` | `parseSpeed`, `parseWidth`, `sampleIndices`, `buildHighwayQuery`, `matchWaysToPoints` |
+
+Fixtures live in `tests/fixtures/` — `test-route.gpx` (a small Kansas City loop) and `overpass-mock.json` (a canned Overpass response used by both unit and E2E tests).
+
+### E2E tests (Playwright)
+
+Runs against a live server. The config spins up `python3 -m http.server 8080` automatically; if a server is already running on that port it will be reused.
+
+```bash
+npm run test:e2e        # headless Chromium
+npm run test:e2e:ui     # Playwright UI (interactive)
+```
+
+E2E tests use a Page Object (`tests/e2e/saferoute.page.js`) that intercepts Overpass requests and returns the mock fixture, so tests are deterministic and offline-capable. Covered flows: upload screen on load, GPX upload → scored results, score range (0–100), route name display, hazard list, and reset back to upload state.
+
+---
+
 ## Project Structure
 
 ```
@@ -120,8 +159,23 @@ saferoute/
 │   ├── map.js              # Leaflet map, polylines, focus interaction
 │   └── results.js          # Score ring, factor bars, hazard list, segment table
 │
-└── assets/
-    └── demo-kc.gpx         # Kansas City demo route
+├── assets/
+│   └── demo-kc.gpx         # Kansas City demo route
+│
+├── tests/
+│   ├── engine.test.js      # Scoring engine unit tests
+│   ├── overpass.test.js    # Overpass client unit tests
+│   ├── parser.test.js      # GPX / TCX parser unit tests
+│   ├── profiles.test.js    # Road profiles / tier unit tests
+│   ├── fixtures/
+│   │   ├── test-route.gpx  # Sample route for tests
+│   │   └── overpass-mock.json  # Canned Overpass response
+│   └── e2e/
+│       ├── saferoute.page.js   # Playwright Page Object
+│       └── upload.spec.js      # E2E upload + results flow
+│
+├── vitest.config.js        # Unit test config (happy-dom)
+└── playwright.config.js    # E2E test config (Chromium, local server)
 ```
 
 ---
