@@ -17,8 +17,8 @@ export class SafeRoutePage {
     await this.page.goto('/');
     // Clear OSM cache so tests start clean regardless of prior runs
     await this.page.evaluate(() => {
-      for (const key of [...Object.keys(localStorage)]) {
-        if (key.startsWith('sr_osm_')) localStorage.removeItem(key);
+      for (const key of [...Object.keys(sessionStorage)]) {
+        if (key.startsWith('sr_osm_')) sessionStorage.removeItem(key);
       }
     });
   }
