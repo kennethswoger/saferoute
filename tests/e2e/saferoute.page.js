@@ -46,6 +46,11 @@ export class SafeRoutePage {
     );
   }
 
+  async openDemoRoute() {
+    await this.page.locator('#demoBtn').click();
+  }
+
+
   async uploadGPX() {
     await this.page.locator('#fileInput').setInputFiles(GPX);
   }

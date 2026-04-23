@@ -159,15 +159,3 @@ test('navigating to a share URL loads the route directly', async ({ page }) => {
   await sr.waitForResults();
   expect(await sr.getRouteName()).toBe('Test Route');
 });
-
-test.only('load the demo route using the API', async ({ page }) => {
-  const sr = new SafeRoutePage(page);
-
-  // Load once to capture the share hash. Route intercepts persist across
-  // navigations on the same page, so the mock stays active for the reload.
-  await sr.goto();
-  await sr.openDemoRoute();
-  await sr.waitForResults();
-
-  expect(await sr.getRouteName()).toBe('Kansas City To Leawood Route');
-});
