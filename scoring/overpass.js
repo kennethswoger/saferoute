@@ -18,12 +18,14 @@ const OVERPASS_ENDPOINTS = [
   'https://overpass.kumi.systems/api/interpreter',
   'https://overpass.openstreetmap.fr/api/interpreter',
 ];
-const BATCH_TIMEOUT   = 20000; // ms client-side timeout per endpoint
-const SERVER_TIMEOUT  = 15;    // seconds — Overpass [timeout:N] directive
-const MAX_QUERIES     = 15;    // sample points per route (fewer = smaller query)
-const QUERY_RADIUS    = 25;    // metres radius around each sample point
+const BATCH_TIMEOUT    = 20000; // ms client-side timeout per endpoint
+const SERVER_TIMEOUT   = 15;    // seconds — Overpass [timeout:N] directive
+const MIN_QUERIES      = 15;    // minimum sample points (short routes)
+const MAX_QUERIES      = 120;   // hard cap — spread across chunked batches
+const POINTS_PER_BATCH = 10;    // points per Overpass request (smaller = faster per chunk, more chunks)
+const QUERY_RADIUS    = 50;    // metres radius around each sample point
 const LANDUSE_RADIUS  = 100;   // metres — larger radius for residential landuse polygons
-const MAX_HIGHWAY_DIST = 50;   // metres — max nearest-node distance for highway ways
+const MAX_HIGHWAY_DIST = 75;   // metres — max perpendicular distance for highway ways
 const MAX_LANDUSE_DIST = 200;  // metres — max nearest-node distance for landuse polygons
 const RETRY_DELAY     = 2000;  // ms — pause before single retry on total failure
 
@@ -50,7 +52,7 @@ export function parseWidth(raw, highwayType) {
 // ── sessionStorage cache ───────────────────────────────────────────────────────
 // Bump this version any time the cache schema or query logic changes so stale
 // entries (including poisoned nulls from API failures) are automatically ignored.
-const CACHE_VERSION = 2;
+const CACHE_VERSION = 10;
 function cacheKey(lat, lon) {
   return `sr_osm_v${CACHE_VERSION}_${Math.round(lat * 1000)}_${Math.round(lon * 1000)}`;
 }
@@ -171,20 +173,47 @@ async function fetchBatch(points) {
   return { elements: [...(hwJson.elements ?? []), ...(luJson.elements ?? [])] };
 }
 
-// ── Nearest-node distance from a way's geometry to a query point ──────────────
-// `out geom` returns el.geometry as an array of { lat, lon } nodes.
-// Using the nearest node rather than the bbox centroid prevents long roads
-// (e.g. Lee Blvd) from bleeding into adjacent residential intersections whose
-// centroid happens to land closer to the sample point than the residential road.
-function nearestNodeDist(el, lat, lon) {
+// ── Perpendicular segment distance from a way's geometry to a query point ──────
+// For each consecutive node pair (A→B), finds the closest point on that segment
+// to the sample point using a flat-earth projection. This correctly handles long
+// roads whose nodes are spaced far apart — the road itself may pass within 2m of
+// the sample point even if no individual node is within 50m.
+function nearestSegmentDist(el, lat, lon) {
   const nodes = el.geometry;
   if (!nodes?.length) return Infinity;
-  let min = Infinity;
-  for (const node of nodes) {
-    const d = distMetres(lat, lon, node.lat, node.lon);
-    if (d < min) min = d;
+  if (nodes.length === 1) return distMetres(lat, lon, nodes[0].lat, nodes[0].lon);
+
+  // Local flat-earth projection centred on the sample point (valid for <5 km)
+  const cosLat    = Math.cos(lat * Math.PI / 180);
+  const mPerDegLat = 111320;
+  const mPerDegLon = mPerDegLat * cosLat;
+
+  let minDist = Infinity;
+
+  for (let i = 0; i < nodes.length - 1; i++) {
+    const ax = (nodes[i].lon     - lon) * mPerDegLon;
+    const ay = (nodes[i].lat     - lat) * mPerDegLat;
+    const bx = (nodes[i + 1].lon - lon) * mPerDegLon;
+    const by = (nodes[i + 1].lat - lat) * mPerDegLat;
+
+    const abx = bx - ax, aby = by - ay;
+    const len2 = abx * abx + aby * aby;
+
+    let d;
+    if (len2 === 0) {
+      d = Math.sqrt(ax * ax + ay * ay); // degenerate segment
+    } else {
+      // t = projection parameter clamped to [0,1] → closest point on segment
+      const t  = Math.max(0, Math.min(1, -(ax * abx + ay * aby) / len2));
+      const cx = ax + t * abx;
+      const cy = ay + t * aby;
+      d = Math.sqrt(cx * cx + cy * cy);
+    }
+
+    if (d < minDist) minDist = d;
   }
-  return min;
+
+  return minDist;
 }
 
 // ── Match returned ways back to sample points ──────────────────────────────────
@@ -198,13 +227,13 @@ function matchWaysToPoints(elements, samplePoints) {
     const isLanduse = !!el.tags?.landuse;
     const cap = isLanduse ? MAX_LANDUSE_DIST : MAX_HIGHWAY_DIST;
 
-    // Highway ways: use nearest-node distance (requires geom).
-    // Landuse ways: use bbox centroid distance (center only, no geom).
+    // Highway ways: perpendicular distance to nearest segment (requires geom).
+    // Landuse ways: centroid distance (center only, no geom).
     let minDist = Infinity, nearestIdx = 0;
     for (let i = 0; i < samplePoints.length; i++) {
       const d = isLanduse
         ? (el.center ? distMetres(samplePoints[i][0], samplePoints[i][1], el.center.lat, el.center.lon) : Infinity)
-        : nearestNodeDist(el, samplePoints[i][0], samplePoints[i][1]);
+        : nearestSegmentDist(el, samplePoints[i][0], samplePoints[i][1]);
       if (d < minDist) { minDist = d; nearestIdx = i; }
     }
     if (minDist <= cap) {
@@ -219,14 +248,25 @@ function matchWaysToPoints(elements, samplePoints) {
     const highwayGroup = group.filter(({ el }) => el.tags?.highway);
 
     if (highwayGroup.length) {
-      // Sort: closest way wins. Within 12m prefer cycling-friendlier road type.
-      const PROXIMITY_BAND = 12;
+      // Sorting rules:
+      // 1. Cycling infra (cycleway/path) vs road type → pure distance wins.
+      //    The GPS track is either physically on the trail or on the road;
+      //    perpendicular distance is the correct arbiter.
+      // 2. Road vs road → within 15m prefer lower-traffic type, but demote
+      //    service roads (driveways/alleys) to last so a nearby driveway
+      //    entrance never beats the main road the cyclist is riding on.
+      const ROAD_BAND = 15;
+      const isCycleInfra = t => t === 'cycleway' || t === 'path';
+      const ROAD_RANK = { residential: 0, tertiary: 1, secondary: 2, primary: 3, trunk: 4, motorway: 5, service: 99 };
       highwayGroup.sort((a, b) => {
-        const band = Math.abs(a.dist - b.dist) <= PROXIMITY_BAND;
+        const ta = a.el.tags?.highway ?? '';
+        const tb = b.el.tags?.highway ?? '';
+        if (isCycleInfra(ta) !== isCycleInfra(tb)) return a.dist - b.dist;
+        const band = Math.abs(a.dist - b.dist) <= ROAD_BAND;
         if (band) {
-          const ra = HIGHWAY_RANK.indexOf(a.el.tags?.highway ?? '');
-          const rb = HIGHWAY_RANK.indexOf(b.el.tags?.highway ?? '');
-          return (ra === -1 ? 99 : ra) - (rb === -1 ? 99 : rb);
+          const ra = ROAD_RANK[ta] ?? 50;
+          const rb = ROAD_RANK[tb] ?? 50;
+          if (ra !== rb) return ra - rb;
         }
         return a.dist - b.dist;
       });
@@ -288,7 +328,9 @@ export async function fetchRoadData(points, onProgress) {
   if (!points?.length) return null;
 
   try {
-    const sampleIdxs = sampleIndices(points.length, MAX_QUERIES);
+    // Scale sample count with route length: 1 sample per ~3 segments, clamped.
+    const queryCount  = Math.min(MAX_QUERIES, Math.max(MIN_QUERIES, Math.ceil(points.length / 3)));
+    const sampleIdxs = sampleIndices(points.length, queryCount);
     const samplePts  = sampleIdxs.map(i => points[i]);
 
     // Separate already-cached from points that need a live fetch
@@ -304,51 +346,59 @@ export async function fetchRoadData(points, onProgress) {
 
     if (uncachedPts.length > 0) {
       onProgress?.(0, samplePts.length);
+      let doneCount = samplePts.length - uncachedPts.length; // pre-count cache hits
 
-      let json;
-      for (let attempt = 0; attempt < 2; attempt++) {
-        try {
-          if (attempt > 0) {
-            console.warn(`[SafeRoute] Overpass batch failed, retrying in ${RETRY_DELAY / 1000}s…`);
-            onProgress?.(0, samplePts.length);
-            await new Promise(r => setTimeout(r, RETRY_DELAY));
-          }
-          json = await fetchBatch(uncachedPts);
-          break;
-        } catch {
-          if (attempt === 1) {
-            console.warn('[SafeRoute] Overpass batch failed after retry — falling back to simulated data.');
-            return null;
+      // Split uncached points into sequential chunks so no single Overpass
+      // request carries more than POINTS_PER_BATCH points (prevents timeouts
+      // on dense routes that need 60 samples).
+      for (let chunkStart = 0; chunkStart < uncachedPts.length; chunkStart += POINTS_PER_BATCH) {
+        const chunkPts  = uncachedPts.slice(chunkStart, chunkStart + POINTS_PER_BATCH);
+        const chunkIdxs = uncachedIdxs.slice(chunkStart, chunkStart + POINTS_PER_BATCH);
+
+        let json;
+        for (let attempt = 0; attempt < 2; attempt++) {
+          try {
+            if (attempt > 0) {
+              console.warn(`[SafeRoute] Overpass chunk failed, retrying in ${RETRY_DELAY / 1000}s…`);
+              await new Promise(r => setTimeout(r, RETRY_DELAY));
+            }
+            json = await fetchBatch(chunkPts);
+            break;
+          } catch {
+            if (attempt === 1) {
+              console.warn('[SafeRoute] Overpass chunk failed after retry — chunk results will be simulated.');
+              json = { elements: [] };
+            }
           }
         }
+
+        const elements    = json.elements ?? [];
+        const freshResults = matchWaysToPoints(elements, chunkPts);
+        // Only cache null when the query actually returned data — prevents
+        // cache poisoning from silent API failures (empty elements = possible timeout).
+        const chunkReturnedData = elements.length > 0;
+
+        chunkIdxs.forEach((sampleI, freshI) => {
+          const result = freshResults[freshI] ?? null;
+          if (result !== null || chunkReturnedData) {
+            writeCache(samplePts[sampleI][0], samplePts[sampleI][1], result);
+          }
+          tagResults[sampleI] = result;
+        });
+
+        doneCount += chunkPts.length;
+        onProgress?.(doneCount, samplePts.length);
       }
-
-      const elements = json.elements ?? [];
-      const freshResults = matchWaysToPoints(elements, uncachedPts);
-
-      // Only cache null (API miss) when the query actually returned data.
-      // If elements is empty the API may have silently failed — don't poison
-      // the cache so that "Try again" can issue a real request next time.
-      const queryReturnedData = elements.length > 0;
-
-      uncachedIdxs.forEach((sampleI, freshI) => {
-        const result = freshResults[freshI] ?? null;
-        if (result !== null || queryReturnedData) {
-          writeCache(samplePts[sampleI][0], samplePts[sampleI][1], result);
-        }
-        tagResults[sampleI] = result;
-      });
     }
 
-    onProgress?.(samplePts.length, samplePts.length);
-
-    // Map every original point index to its nearest sample index
-    return points.map((_, pi) => {
+    // Map every original point to its geographically nearest sample.
+    // Geographic distance prevents a sample point from bleeding into
+    // segments on a different road that happen to be adjacent by route index.
+    return points.map(([lat, lon]) => {
       let nearest = 0, minDist = Infinity;
       for (let si = 0; si < sampleIdxs.length; si++) {
-        const d = Math.abs(sampleIdxs[si] - pi);
+        const d = distMetres(lat, lon, samplePts[si][0], samplePts[si][1]);
         if (d < minDist) { minDist = d; nearest = si; }
-        if (sampleIdxs[si] > pi) break; // sampleIdxs is sorted — past the closest
       }
       return tagResults[nearest] ?? null;
     });
