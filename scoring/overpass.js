@@ -21,9 +21,9 @@ const OVERPASS_ENDPOINTS = [
 const BATCH_TIMEOUT    = 20000; // ms client-side timeout per endpoint
 const SERVER_TIMEOUT   = 15;    // seconds — Overpass [timeout:N] directive
 const MIN_QUERIES      = 15;    // minimum sample points (short routes)
-const MAX_QUERIES      = 120;   // hard cap — spread across chunked batches
-const POINTS_PER_BATCH = 10;    // points per Overpass request (smaller = faster per chunk, more chunks)
-const QUERY_RADIUS    = 50;    // metres radius around each sample point
+const MAX_QUERIES      = 200;   // hard cap — spread across chunked batches
+const POINTS_PER_BATCH = 8;     // points per Overpass request (smaller = faster per chunk, more chunks)
+const QUERY_RADIUS    = 10;    // metres radius around each sample point
 const LANDUSE_RADIUS  = 100;   // metres — larger radius for residential landuse polygons
 const MAX_HIGHWAY_DIST = 75;   // metres — max perpendicular distance for highway ways
 const MAX_LANDUSE_DIST = 200;  // metres — max nearest-node distance for landuse polygons
@@ -52,7 +52,7 @@ export function parseWidth(raw, highwayType) {
 // ── sessionStorage cache ───────────────────────────────────────────────────────
 // Bump this version any time the cache schema or query logic changes so stale
 // entries (including poisoned nulls from API failures) are automatically ignored.
-const CACHE_VERSION = 10;
+const CACHE_VERSION = 11;
 function cacheKey(lat, lon) {
   return `sr_osm_v${CACHE_VERSION}_${Math.round(lat * 1000)}_${Math.round(lon * 1000)}`;
 }
@@ -328,8 +328,8 @@ export async function fetchRoadData(points, onProgress) {
   if (!points?.length) return null;
 
   try {
-    // Scale sample count with route length: 1 sample per ~3 segments, clamped.
-    const queryCount  = Math.min(MAX_QUERIES, Math.max(MIN_QUERIES, Math.ceil(points.length / 3)));
+    // Scale sample count with route length: 1 sample per ~2 segments, clamped.
+    const queryCount  = Math.min(MAX_QUERIES, Math.max(MIN_QUERIES, Math.ceil(points.length / 2)));
     const sampleIdxs = sampleIndices(points.length, queryCount);
     const samplePts  = sampleIdxs.map(i => points[i]);
 
