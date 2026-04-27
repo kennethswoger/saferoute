@@ -11,6 +11,7 @@ Built for club ride organizers who want to audit routes before group rides.
 ## Features
 
 - **Drag-and-drop file upload** — GPX, TCX, and FIT supported
+- **Strava import** — connect your Strava account and pick a saved route directly, no file export needed
 - **Real OSM road data** — queries the Overpass API in a single batched request, racing two endpoints simultaneously for reliability
 - **Per-segment safety scoring** — 0–100 score based on five weighted factors
 - **Color-coded map** — green / amber / red polylines on a dark Leaflet map
@@ -18,7 +19,7 @@ Built for club ride organizers who want to audit routes before group rides.
 - **Score breakdown** — factor bars showing what's driving the overall score
 - **Hazard list** — surfaces all segments scoring below 50
 - **Demo route** — try it instantly with a Kansas City loop without uploading anything
-- **Fully client-side** — no server, no build step, deployable to GitHub Pages as-is
+- **No build step** — deployable to GitHub Pages as-is
 
 ---
 
@@ -78,6 +79,39 @@ When Overpass is fully unavailable the engine falls back to residential defaults
 
 ---
 
+## Strava Integration Setup
+
+Strava import requires a one-time setup to keep your API credentials off the client.
+
+**1. Create a Strava app** at https://www.strava.com/settings/api. Set the Authorization Callback Domain to your GitHub Pages domain (e.g. `kennethswoger.github.io`).
+
+**2. Deploy the Cloudflare Worker** (free tier — handles the OAuth token exchange so `CLIENT_SECRET` never touches the browser):
+
+```bash
+cd worker
+npx wrangler login
+npx wrangler secret put STRAVA_CLIENT_SECRET   # paste your secret when prompted
+npx wrangler deploy                             # prints your worker URL
+```
+
+**3. Configure `js/strava.js`** with your app's `CLIENT_ID` and the worker URL printed by `wrangler deploy`:
+
+```js
+const CLIENT_ID = 'YOUR_STRAVA_CLIENT_ID';
+const PROXY_URL = 'https://saferoute-strava-proxy.YOUR_SUBDOMAIN.workers.dev';
+```
+
+**4. Update `worker/wrangler.toml`** with your `CLIENT_ID` and your allowed origins:
+
+```toml
+STRAVA_CLIENT_ID = "YOUR_STRAVA_CLIENT_ID"
+ALLOWED_ORIGINS  = "https://YOUR_USERNAME.github.io,http://localhost:8080"
+```
+
+`CLIENT_SECRET` is stored only in Cloudflare's secret vault and never appears in code or the repository.
+
+---
+
 ## Running Locally
 
 Because SafeRoute uses ES modules (`type="module"`), it must be served over HTTP — it won't work opened directly from the filesystem.
@@ -94,6 +128,47 @@ npx serve .
 ```
 
 Then open `http://localhost:8080`.
+
+---
+
+## Testing
+
+Install dependencies first (only needed once):
+
+```bash
+npm install
+```
+
+**Unit tests** — scoring engine, Overpass matching logic, parsers, and road profiles:
+
+```bash
+npm run test:run
+```
+
+Run in watch mode during development:
+
+```bash
+npm test
+```
+
+**End-to-end tests** — full browser flows via Playwright (requires a local server running on port 8080):
+
+```bash
+# Install Playwright browsers (only needed once)
+npx playwright install
+
+# In one terminal, start the local server
+python3 -m http.server 8080
+
+# In another terminal, run the e2e suite
+npm run test:e2e
+```
+
+Open the Playwright UI for step-by-step debugging:
+
+```bash
+npm run test:e2e:ui
+```
 
 ---
 
@@ -120,8 +195,17 @@ saferoute/
 │   ├── map.js              # Leaflet map, polylines, focus interaction
 │   └── results.js          # Score ring, factor bars, hazard list, segment table
 │
+├── js/
+│   └── strava.js           # Strava OAuth PKCE flow, token storage, API calls
+│
+├── worker/
+│   ├── index.js            # Cloudflare Worker — Strava token exchange proxy
+│   └── wrangler.toml       # Worker config (deploy with `npx wrangler deploy`)
+│
 └── assets/
-    └── demo-kc.gpx         # Kansas City demo route
+    ├── demo-kc.gpx         # Kansas City demo route
+    ├── btn_strava_connect_with_orange.svg
+    └── btn_strava_import_with_orange.svg
 ```
 
 ---

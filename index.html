@@ -38,7 +38,25 @@
           <input type="file" id="fileInput" accept=".gpx,.tcx,.fit" hidden>
         </div>
         <p class="drop-hint">or drag and drop anywhere on this page</p>
+        <div class="upload-or"><span>or</span></div>
+        <button class="btn-strava" id="stravaBtn" aria-label="Connect with Strava">
+          <img src="./assets/btn_strava_connect_with_orange.svg" alt="Connect with Strava">
+        </button>
         <button class="btn-demo" id="demoBtn">Try the demo route</button>
+      </section>
+
+      <!-- ── Strava route picker state ── -->
+      <section class="strava-zone" id="stravaZone" hidden>
+        <div class="strava-picker-inner">
+          <div class="strava-picker-header">
+            <h2 class="strava-picker-title">Your Routes</h2>
+            <div class="strava-picker-actions">
+              <button class="btn-disconnect" id="disconnectBtn">Disconnect Strava</button>
+              <button class="btn-back" id="stravaBackBtn">← Back</button>
+            </div>
+          </div>
+          <div class="strava-route-list" id="stravaRouteList"></div>
+        </div>
       </section>
 
       <!-- ── Loading state ── -->

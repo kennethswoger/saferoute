@@ -31,7 +31,7 @@ The MVP is a **client-side web app** — no backend, no auth, no database. Every
 - [ ] Shareable text summary (copy to clipboard)
 
 ### Post-MVP (v2+)
-- [ ] Strava OAuth — import routes directly without file export
+- [x] Strava OAuth — import routes directly without file export
 - [ ] Safer alternative route suggestion
 - [ ] Shareable report URL (encode route + scores in URL params or short link)
 - [ ] Community hazard layer (user-reported road conditions)
@@ -400,7 +400,7 @@ Live at: `https://YOUR_USERNAME.github.io/saferoute/`
 
 ## Potential V2 Features
 
-- **Strava import** — OAuth flow, pull route from Strava API directly, no file export needed
+- ~~**Strava import** — OAuth flow, pull route from Strava API directly, no file export needed~~ ✅ shipped
 - **Shareable report URL** — encode route + scores in URL for easy club sharing
 - **Alternative route suggestion** — if score < 60, suggest a safer OSM-routed alternative via OSRM or Valhalla
 - **Community hazard layer** — user-reported road issues overlaid on the map

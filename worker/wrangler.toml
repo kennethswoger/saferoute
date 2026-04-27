@@ -1,0 +1,16 @@
+name               = "saferoute-strava-proxy"
+main               = "index.js"
+compatibility_date = "2025-01-01"
+
+[vars]
+# Public — safe to commit
+STRAVA_CLIENT_ID = "231694"
+ALLOWED_ORIGINS  = "https://kennethswoger.github.io,http://localhost:8080"
+
+workers_dev  = true
+preview_urls = false
+
+
+# STRAVA_CLIENT_SECRET is a secret — set it with:
+#   wrangler secret put STRAVA_CLIENT_SECRET
+# It will never appear in this file or in the dashboard plaintext.

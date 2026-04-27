@@ -951,3 +951,147 @@ a:hover { color: var(--safe-light); }
   font-size: 0.72rem;
   color: var(--dim);
 }
+
+/* ── Connect Strava ──────────────────────────────────────────────────────────── */
+.upload-or {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  font-family: var(--font-label);
+  font-size: 0.72rem;
+  color: var(--dim);
+}
+
+.upload-or::before,
+.upload-or::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border2);
+}
+
+.btn-strava {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display: block;
+  transition: opacity 0.15s, transform 0.1s;
+}
+
+.btn-strava img {
+  display: block;
+  height: 40px;
+  width: auto;
+}
+
+.btn-strava:hover { opacity: 0.88; transform: translateY(-1px); }
+
+/* ── Strava route picker ─────────────────────────────────────────────────────── */
+.strava-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 520px;
+}
+
+.strava-picker-inner {
+  width: 100%;
+  background: var(--s1);
+  border-radius: var(--r-lg);
+  padding: 1.5rem;
+}
+
+.strava-picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+}
+
+.strava-picker-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.strava-picker-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.3rem;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.btn-disconnect {
+  background: none;
+  border: none;
+  font-family: var(--font-label);
+  font-size: 0.75rem;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--r-sm);
+  transition: color 0.15s;
+}
+
+.btn-disconnect:hover { color: var(--danger); }
+
+.strava-route-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.strava-route-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  background: var(--s2);
+  border: none;
+  border-radius: var(--r-md);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s;
+}
+
+.strava-route-item:hover { background: var(--s3); }
+
+.strava-route-name {
+  font-family: var(--font-label);
+  font-size: 0.9rem;
+  color: var(--text);
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.strava-route-chips {
+  display: flex;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.strava-chip {
+  font-family: var(--font-label);
+  font-size: 0.72rem;
+  color: var(--muted);
+  background: var(--s3);
+  padding: 0.2rem 0.65rem;
+  border-radius: var(--r-full);
+  white-space: nowrap;
+}
+
+.strava-no-routes {
+  font-size: 0.85rem;
+  color: var(--muted);
+  font-style: italic;
+  text-align: center;
+  padding: 2rem 0;
+}
