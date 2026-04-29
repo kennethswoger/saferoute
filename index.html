@@ -34,6 +34,23 @@
           <p class="upload-sub">
             Supports <span class="badge">.gpx</span> <span class="badge">.tcx</span> <span class="badge">.fit</span>
           </p>
+          <div class="profile-wrap">
+            <p class="profile-label">Ride Profile</p>
+            <div class="profile-selector" id="profileSelector" role="group" aria-label="Ride profile">
+              <label class="profile-opt">
+                <input type="radio" name="riderProfile" value="solo">
+                <span>Solo</span>
+              </label>
+              <label class="profile-opt">
+                <input type="radio" name="riderProfile" value="club">
+                <span>Club Ride</span>
+              </label>
+              <label class="profile-opt">
+                <input type="radio" name="riderProfile" value="large_group">
+                <span>Large Group</span>
+              </label>
+            </div>
+          </div>
           <label class="btn-upload" for="fileInput">Browse files</label>
           <input type="file" id="fileInput" accept=".gpx,.tcx,.fit" hidden>
         </div>

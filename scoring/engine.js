@@ -7,8 +7,10 @@
 // }
 
 import {
-  ROAD_PROFILES, WIDTH_DEFAULTS, SPEED_DEFAULTS, ROAD_WEIGHTS, getTier,
+  ROAD_PROFILES, WIDTH_DEFAULTS, SPEED_DEFAULTS, ROAD_WEIGHTS, getTier, RIDE_PROFILES,
 } from './profiles.js';
+
+export const DEFAULT_PROFILE_KEY = 'club';
 import { fetchRoadData, parseSpeed, parseWidth } from './overpass.js';
 
 // ── Haversine distance (miles) ─────────────────────────────────────────────────
@@ -70,21 +72,22 @@ export function scoreSpeed(mph) {
 }
 
 // ── Segment scorer ─────────────────────────────────────────────────────────────
-export function scoreSegment(roadType, speedLimit, width) {
-  const profile = ROAD_PROFILES[roadType] ?? ROAD_PROFILES.tertiary;
+export function scoreSegment(roadType, speedLimit, width, riderProfile = RIDE_PROFILES[DEFAULT_PROFILE_KEY]) {
+  const roadProfile = ROAD_PROFILES[roadType] ?? ROAD_PROFILES.tertiary;
   const factors = {
     width:   scoreWidth(width),
     speed:   scoreSpeed(speedLimit),
-    traffic: profile.trafficScore,
-    infra:   profile.infraScore,
-    surface: profile.surfaceScore,
+    traffic: riderProfile.roadScoreOverrides[roadType] ?? roadProfile.trafficScore,
+    infra:   roadProfile.infraScore,
+    surface: roadProfile.surfaceScore,
   };
+  const w = riderProfile.weights;
   const score = Math.round(
-    factors.width   * 0.25 +
-    factors.speed   * 0.25 +
-    factors.traffic * 0.28 +
-    factors.infra   * 0.12 +
-    factors.surface * 0.10
+    factors.width   * w.roadWidth +
+    factors.speed   * w.speedLimit +
+    factors.traffic * w.trafficExposure +
+    factors.infra   * w.infrastructure +
+    factors.surface * w.surface
   );
   return { score, factors };
 }
@@ -139,7 +142,7 @@ export function resolveRoadAttrs(mid, osmTags, idx, osmFailed) {
 }
 
 // ── Main export ────────────────────────────────────────────────────────────────
-export async function scoreRoute(route, onProgress) {
+export async function scoreRoute(route, onProgress, riderProfile = RIDE_PROFILES[DEFAULT_PROFILE_KEY]) {
   const { points, name, fileType } = route;
   const groups = groupIntoSegments(points);
 
@@ -156,7 +159,7 @@ export async function scoreRoute(route, onProgress) {
     const { roadType, speedLimit, width, source, streetName, surface } =
       resolveRoadAttrs(mid, osmData?.[i] ?? null, i, osmFailed);
 
-    const { score, factors } = scoreSegment(roadType, speedLimit, width);
+    const { score, factors } = scoreSegment(roadType, speedLimit, width, riderProfile);
     const tier = getTier(score);
 
     return {
@@ -200,7 +203,7 @@ export async function scoreRoute(route, onProgress) {
 
     if (!neighbor) continue;
 
-    const { score, factors } = scoreSegment(neighbor.roadType, neighbor.speedLimit, neighbor.width);
+    const { score, factors } = scoreSegment(neighbor.roadType, neighbor.speedLimit, neighbor.width, riderProfile);
     const tier = getTier(score);
     segments[i] = {
       ...segments[i],

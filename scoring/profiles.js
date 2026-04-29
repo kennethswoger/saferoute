@@ -54,3 +54,22 @@ export const TIERS = [
 export function getTier(score) {
   return TIERS.find(t => score >= t.min) ?? TIERS[TIERS.length - 1];
 }
+
+// Ride profiles — adjust factor weights and per-road traffic scores
+export const RIDE_PROFILES = {
+  solo: {
+    label: 'Solo / Small Group',
+    weights: { trafficExposure: 0.32, roadWidth: 0.20, speedLimit: 0.25, infrastructure: 0.13, surface: 0.10 },
+    roadScoreOverrides: { tertiary: 45, secondary: 30 },
+  },
+  club: {
+    label: 'Club Ride (10–30)',
+    weights: { trafficExposure: 0.28, roadWidth: 0.28, speedLimit: 0.22, infrastructure: 0.12, surface: 0.10 },
+    roadScoreOverrides: {},
+  },
+  large_group: {
+    label: 'Large Group / Event (30+)',
+    weights: { trafficExposure: 0.22, roadWidth: 0.35, speedLimit: 0.20, infrastructure: 0.13, surface: 0.10 },
+    roadScoreOverrides: { residential: 55, tertiary: 65 },
+  },
+};

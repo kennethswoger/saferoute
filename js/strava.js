@@ -111,14 +111,7 @@ export function getStravaToken() {
 }
 
 export function disconnectStrava() {
-  const token = getStravaToken();
   localStorage.removeItem(TOKEN_KEY);
-  if (token) {
-    fetch('https://www.strava.com/oauth/deauthorize', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
-    }).catch(() => {}); // fire-and-forget, local clear already happened
-  }
 }
 
 export async function fetchStravaRoutes(token) {
