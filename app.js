@@ -33,7 +33,7 @@ const initialRadio = profileSelector.querySelector(`input[value="${initialProfil
 if (initialRadio) initialRadio.checked = true;
 
 profileSelector.addEventListener('change', e => {
-  if (e.target.name === 'riderProfile') localStorage.setItem('sr-rider-profile', e.target.value);
+  if (e.target.name === 'rideProfile') localStorage.setItem('sr-rider-profile', e.target.value);
 });
 
 // ── State machine ──────────────────────────────────────────────────────────────
@@ -247,7 +247,7 @@ async function processRoute(route) {
   const result = await scoreRoute(route, (done, total) => {
     if (total === 0) return;
     setLoadingLabel(done === total ? 'Scoring segments…' : 'Querying road data…');
-  }, riderProfile);
+  }, rideProfile);
 
   const { initMap }       = await import('./ui/map.js');
   const { renderResults } = await import('./ui/results.js');

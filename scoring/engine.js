@@ -72,16 +72,16 @@ export function scoreSpeed(mph) {
 }
 
 // ── Segment scorer ─────────────────────────────────────────────────────────────
-export function scoreSegment(roadType, speedLimit, width, riderProfile = RIDE_PROFILES[DEFAULT_PROFILE_KEY]) {
+export function scoreSegment(roadType, speedLimit, width, rideProfile = RIDE_PROFILES[DEFAULT_PROFILE_KEY]) {
   const roadProfile = ROAD_PROFILES[roadType] ?? ROAD_PROFILES.tertiary;
   const factors = {
     width:   scoreWidth(width),
     speed:   scoreSpeed(speedLimit),
-    traffic: riderProfile.roadScoreOverrides[roadType] ?? roadProfile.trafficScore,
+    traffic: rideProfile.roadScoreOverrides[roadType] ?? roadProfile.trafficScore,
     infra:   roadProfile.infraScore,
     surface: roadProfile.surfaceScore,
   };
-  const w = riderProfile.weights;
+  const w = rideProfile.weights;
   const score = Math.round(
     factors.width   * w.roadWidth +
     factors.speed   * w.speedLimit +
@@ -142,7 +142,7 @@ export function resolveRoadAttrs(mid, osmTags, idx, osmFailed) {
 }
 
 // ── Main export ────────────────────────────────────────────────────────────────
-export async function scoreRoute(route, onProgress, riderProfile = RIDE_PROFILES[DEFAULT_PROFILE_KEY]) {
+export async function scoreRoute(route, onProgress, rideProfile = RIDE_PROFILES[DEFAULT_PROFILE_KEY]) {
   const { points, name, fileType } = route;
   const groups = groupIntoSegments(points);
 
@@ -159,7 +159,7 @@ export async function scoreRoute(route, onProgress, riderProfile = RIDE_PROFILES
     const { roadType, speedLimit, width, source, streetName, surface } =
       resolveRoadAttrs(mid, osmData?.[i] ?? null, i, osmFailed);
 
-    const { score, factors } = scoreSegment(roadType, speedLimit, width, riderProfile);
+    const { score, factors } = scoreSegment(roadType, speedLimit, width, rideProfile);
     const tier = getTier(score);
 
     return {
@@ -203,7 +203,7 @@ export async function scoreRoute(route, onProgress, riderProfile = RIDE_PROFILES
 
     if (!neighbor) continue;
 
-    const { score, factors } = scoreSegment(neighbor.roadType, neighbor.speedLimit, neighbor.width, riderProfile);
+    const { score, factors } = scoreSegment(neighbor.roadType, neighbor.speedLimit, neighbor.width, rideProfile);
     const tier = getTier(score);
     segments[i] = {
       ...segments[i],
