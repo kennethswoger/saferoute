@@ -433,6 +433,40 @@ a:hover { color: var(--safe-light); }
 
 .leaflet-tooltip.sr-tooltip::before { display: none; }
 
+/* Route visibility toggle button */
+.btn-route-toggle {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  z-index: 1001;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.6rem;
+  background: color-mix(in srgb, var(--s2) 88%, transparent);
+  color: var(--text);
+  border: 1px solid var(--border2);
+  border-radius: var(--r-md);
+  font-family: var(--font-label);
+  font-size: 0.72rem;
+  font-weight: 500;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  transition: background 0.15s, opacity 0.15s;
+  line-height: 1;
+}
+
+.btn-route-toggle:hover { background: var(--s3); }
+
+.btn-route-toggle .icon-eye-closed { display: none; }
+
+.btn-route-toggle[aria-pressed="false"] {
+  opacity: 0.6;
+}
+
+.btn-route-toggle[aria-pressed="false"] .icon-eye-open  { display: none; }
+.btn-route-toggle[aria-pressed="false"] .icon-eye-closed { display: block; }
+
 .sr-tt-row {
   display: flex;
   align-items: baseline;

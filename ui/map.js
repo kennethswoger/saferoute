@@ -41,6 +41,7 @@ let layerGroup   = null;
 let polylines    = [];   // L.Polyline per segment, indexed by segment order
 let segMeta      = [];   // { tierColor } for style restoration
 let focusOutline = null; // extra wide polyline rendered behind the focused segment
+let routeVisible = true;
 
 export function focusSegment(idx) {
   if (!map) return;
@@ -93,7 +94,25 @@ export function clearFocus() {
     .forEach(el => el.classList.remove('seg-active'));
 }
 
+export function toggleRoute() {
+  if (!map) return routeVisible;
+  routeVisible = !routeVisible;
+  const display = routeVisible ? '' : 'none';
+  ['overlayPane', 'markerPane', 'shadowPane'].forEach(pane => {
+    const el = map.getPane(pane);
+    if (el) el.style.display = display;
+  });
+  return routeVisible;
+}
+
 export function initMap(segments) {
+  routeVisible = true;
+  if (map) {
+    ['overlayPane', 'markerPane', 'shadowPane'].forEach(pane => {
+      const el = map.getPane(pane);
+      if (el) el.style.display = '';
+    });
+  }
   const allPoints = segments.flatMap(s => s.points);
   const bounds    = L.latLngBounds(allPoints);
   const mapEl     = document.getElementById('map');
