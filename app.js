@@ -10,10 +10,31 @@ const loadingLabel    = document.getElementById('loadingLabel');
 const resultsZone     = document.getElementById('resultsZone');
 const stravaZone      = document.getElementById('stravaZone');
 const stravaRouteList = document.getElementById('stravaRouteList');
-const fileInput       = document.getElementById('fileInput');
-const demoBtn         = document.getElementById('demoBtn');
-const stravaBtn       = document.getElementById('stravaBtn');
-const disconnectBtn   = document.getElementById('disconnectBtn');
+const fileInput         = document.getElementById('fileInput');
+const demoBtn           = document.getElementById('demoBtn');
+const stravaBtn         = document.getElementById('stravaBtn');
+const disconnectBtn     = document.getElementById('disconnectBtn');
+const profileSelector   = document.getElementById('profileSelector');
+
+// ── Ride profile ──────────────────────────────────────────────────────────────
+const PROFILE_KEYS = ['solo', 'club', 'large_group'];
+
+function resolveProfileKey() {
+  const urlParam = new URLSearchParams(window.location.search).get('profile');
+  if (PROFILE_KEYS.includes(urlParam)) return urlParam;
+  const stored = localStorage.getItem('sr-rider-profile');
+  if (PROFILE_KEYS.includes(stored)) return stored;
+  return 'club';
+}
+
+// Set initial radio state from localStorage / URL param
+const initialProfileKey = resolveProfileKey();
+const initialRadio = profileSelector.querySelector(`input[value="${initialProfileKey}"]`);
+if (initialRadio) initialRadio.checked = true;
+
+profileSelector.addEventListener('change', e => {
+  if (e.target.name === 'rideProfile') localStorage.setItem('sr-rider-profile', e.target.value);
+});
 
 // ── State machine ──────────────────────────────────────────────────────────────
 export async function setState(state) {
@@ -220,11 +241,13 @@ async function processRoute(route) {
   setLoadingLabel('Querying road data…');
 
   const { scoreRoute } = await import('./scoring/engine.js');
+  const { RIDE_PROFILES } = await import('./scoring/profiles.js');
+  const rideProfile = RIDE_PROFILES[resolveProfileKey()];
 
   const result = await scoreRoute(route, (done, total) => {
     if (total === 0) return;
     setLoadingLabel(done === total ? 'Scoring segments…' : 'Querying road data…');
-  });
+  }, rideProfile);
 
   const { initMap }       = await import('./ui/map.js');
   const { renderResults } = await import('./ui/results.js');

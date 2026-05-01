@@ -257,6 +257,63 @@ a:hover { color: var(--safe-light); }
   color: var(--dim);
 }
 
+/* ── Ride profile selector ──────────────────────────────────────────────────── */
+.profile-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+}
+
+.profile-label {
+  font-family: var(--font-label);
+  font-size: 0.65rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.profile-selector {
+  display: flex;
+  background: var(--s2);
+  border-radius: var(--r-full);
+  padding: 3px;
+  width: 100%;
+}
+
+.profile-opt {
+  flex: 1;
+}
+
+.profile-opt input[type="radio"] {
+  display: none;
+}
+
+.profile-opt span {
+  display: block;
+  font-family: var(--font-label);
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-align: center;
+  padding: 0.35rem 0.5rem;
+  border-radius: var(--r-full);
+  cursor: pointer;
+  color: var(--muted);
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+
+.profile-opt input:checked + span {
+  background: var(--s4);
+  color: var(--text);
+}
+
+.profile-opt:hover span {
+  color: var(--text);
+}
+
 .btn-demo {
   margin-top: 0.25rem;
   background: none;
@@ -375,6 +432,40 @@ a:hover { color: var(--safe-light); }
 }
 
 .leaflet-tooltip.sr-tooltip::before { display: none; }
+
+/* Route visibility toggle button */
+.btn-route-toggle {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  z-index: 1001;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.6rem;
+  background: color-mix(in srgb, var(--s2) 88%, transparent);
+  color: var(--text);
+  border: 1px solid var(--border2);
+  border-radius: var(--r-md);
+  font-family: var(--font-label);
+  font-size: 0.72rem;
+  font-weight: 500;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  transition: background 0.15s, opacity 0.15s;
+  line-height: 1;
+}
+
+.btn-route-toggle:hover { background: var(--s3); }
+
+.btn-route-toggle .icon-eye-closed { display: none; }
+
+.btn-route-toggle[aria-pressed="false"] {
+  opacity: 0.6;
+}
+
+.btn-route-toggle[aria-pressed="false"] .icon-eye-open  { display: none; }
+.btn-route-toggle[aria-pressed="false"] .icon-eye-closed { display: block; }
 
 .sr-tt-row {
   display: flex;

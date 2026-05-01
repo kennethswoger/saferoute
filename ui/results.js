@@ -301,7 +301,7 @@ export async function renderResults(result) {
 
   // Resolve map functions once — avoids async yield inside the click handler
   // which caused a race: a second invocation could see seg-active mid-toggle
-  const { focusSegment, clearFocus } = await import('./map.js');
+  const { focusSegment, clearFocus, toggleRoute } = await import('./map.js');
 
   animateResults();
 
@@ -327,6 +327,14 @@ export async function renderResults(result) {
       btn.textContent = 'Share';
       btn.classList.remove('btn-share--copied');
     }, 2000);
+  });
+
+  // ── Route visibility toggle ────────────────────────────────────────────────
+  document.getElementById('routeToggleBtn')?.addEventListener('click', () => {
+    const btn     = document.getElementById('routeToggleBtn');
+    const visible = toggleRoute();
+    btn.setAttribute('aria-pressed', String(visible));
+    btn.setAttribute('aria-label', visible ? 'Hide route' : 'Show route');
   });
 
   // ── Segment / hazard → map focus (synchronous — no async yield) ───────────
