@@ -3,10 +3,14 @@ import { expect } from '@playwright/test';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { emitWarning } from 'process';
 
 const __dir  = dirname(fileURLToPath(import.meta.url));
-const MOCK   = JSON.parse(readFileSync(join(__dir, '../fixtures/overpass-mock.json'), 'utf8'));
+const MOCKSAFE    = JSON.parse(readFileSync(join(__dir, '../fixtures/overpass-mock-safe.json'), 'utf8'));
+const MOCKDANGER   = JSON.parse(readFileSync(join(__dir, '../fixtures/overpass-mock-danger.json'), 'utf8'));
+const MOCKCAUTION   = JSON.parse(readFileSync(join(__dir, '../fixtures/overpass-mock-use-caution.json'), 'utf8'));
 const GPX    = join(__dir, '../fixtures/test-route.gpx');
+const GPXWARNING  = join(__dir, '../fixtures/test-unsafe-route.gpx');
 
 export class SafeRoutePage {
   constructor(page) {
@@ -25,12 +29,12 @@ export class SafeRoutePage {
 
   // Intercept all Overpass POST requests and return the fixture response.
   // Call before uploadGPX() so the mock is in place when requests fire.
-  async mockOverpassSuccess() {
+  async mockOverpassSuccess(file) {
     await this.page.route('**/api/interpreter', route =>
       route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify(MOCK),
+        body: JSON.stringify(file),
       })
     );
   }
@@ -51,8 +55,8 @@ export class SafeRoutePage {
   }
 
 
-  async uploadGPX() {
-    await this.page.locator('#fileInput').setInputFiles(GPX);
+  async uploadGPX(file) {
+    await this.page.locator('#fileInput').setInputFiles(file);
   }
 
   async waitForResults() {
