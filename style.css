@@ -1,41 +1,41 @@
 /* ── Design tokens ─────────────────────────────────────────────────────────── */
 :root {
   /* Backgrounds */
-  --bg:   #0A0E0C;
-  --s1:   #111714;
-  --s2:   #181F1C;
-  --s3:   #1E2720;
-  --s4:   #242E28;
+  --bg:   #f0f1f2;
+  --s1:   #f3f4f5;
+  --s2:   #edeeef;
+  --s3:   #e7e8e9;
+  --s4:   #e1e3e4;
 
   /* Borders */
-  --border:  rgba(255,255,255,0.06);
-  --border2: rgba(255,255,255,0.12);
-  --border3: rgba(255,255,255,0.20);
+  --border:  rgba(0,0,0,0.07);
+  --border2: rgba(0,0,0,0.12);
+  --border3: rgba(0,0,0,0.20);
 
   /* Text */
-  --text:  #EDF2EE;
-  --muted: #6B8070;
-  --dim:   #3A4A40;
+  --text:  #191c1d;
+  --muted: #757a60;
+  --dim:   #c5c9ac;
 
   /* Safety — Safe */
   --safe:       #1D9E75;
-  --safe-bg:    #04342C;
-  --safe-mid:   #5DCAA5;
-  --safe-light: #9FE1CB;
+  --safe-bg:    #d1ffe8;
+  --safe-mid:   #1D9E75;
+  --safe-light: #5DCAA5;
 
   /* Safety — Caution (Sentinel design tokens) */
   --caution:                #92570a;
   --caution-container:      #ffe0b8;
-  --caution-fixed:          #ffb74d;
+  --caution-fixed:          #92570a;
   --caution-surface:        #fff8f0;
   --on-caution:             #ffffff;
   --on-caution-container:   #6b3d00;
-  --caution-bg:             #2d1800;  /* dark-theme adaptation for badge backgrounds */
+  --caution-bg:             #ffe0b8;
 
   /* Safety — Danger */
-  --danger:     #D85A30;
-  --danger-bg:  #4A1B0C;
-  --danger-mid: #F0997B;
+  --danger:     #ba1a1a;
+  --danger-bg:  #ffdad6;
+  --danger-mid: #ba1a1a;
 
   /* Typography */
   --font-display: 'Space Grotesk', sans-serif;
@@ -60,37 +60,6 @@
   --r-full: 9999px;
 }
 
-/* ── Light mode token overrides ────────────────────────────────────────────── */
-[data-theme="light"] {
-  --bg:   #f0f1f2;
-  --s1:   #f3f4f5;
-  --s2:   #edeeef;
-  --s3:   #e7e8e9;
-  --s4:   #e1e3e4;
-
-  --border:  rgba(0,0,0,0.07);
-  --border2: rgba(0,0,0,0.12);
-  --border3: rgba(0,0,0,0.20);
-
-  --text:  #191c1d;
-  --muted: #757a60;
-  --dim:   #c5c9ac;
-
-  --safe:       #1D9E75;
-  --safe-bg:    #d1ffe8;
-  --safe-mid:   #1D9E75;
-  --safe-light: #5DCAA5;
-
-  --caution:              #92570a;
-  --caution-container:    #ffe0b8;
-  --caution-fixed:        #92570a;
-  --caution-bg:           #ffe0b8;
-  --on-caution-container: #6b3d00;
-
-  --danger:     #ba1a1a;
-  --danger-bg:  #ffdad6;
-  --danger-mid: #ba1a1a;
-}
 
 /* ── Reset ──────────────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -127,19 +96,6 @@ a:hover { color: var(--safe-light); }
   background: var(--s1);
 }
 
-.btn-theme {
-  margin-left: auto;
-  background: none;
-  border: 1px solid var(--border2);
-  border-radius: var(--r-sm);
-  padding: 0.3rem 0.6rem;
-  font-size: 1rem;
-  line-height: 1;
-  cursor: pointer;
-  color: var(--muted);
-  transition: border-color 0.15s, color 0.15s;
-}
-.btn-theme:hover { border-color: var(--border3); color: var(--text); }
 
 .logo {
   font-family: var(--font-display);
@@ -392,7 +348,7 @@ a:hover { color: var(--safe-light); }
   background: var(--s2);
 }
 
-/* Leaflet overrides — keep dark theme consistent */
+/* Leaflet overrides */
 .leaflet-container {
   background: var(--bg);
   font-family: var(--font-body);
@@ -822,12 +778,7 @@ a:hover { color: var(--safe-light); }
 .hazard-item.seg-active .hazard-expand { display: block; }
 
 .hazard-score {
-  font-family: var(--font-display);
-  font-weight: 800;
-  font-size: 1.3rem;
-  line-height: 1;
-  min-width: 2rem;
-  text-align: center;
+  flex-shrink: 0;
 }
 
 .hazard-detail {
@@ -984,9 +935,13 @@ a:hover { color: var(--safe-light); }
 
 .seg-detail-inner {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.6rem;
   flex-wrap: wrap;
+}
+
+.seg-gauge-wrap {
+  flex-shrink: 0;
 }
 
 .source-badge {
@@ -1005,10 +960,16 @@ a:hover { color: var(--safe-light); }
 .source-sim      { background: var(--s4);       color: var(--muted);     border-color: var(--border2); }
 
 .detail-street {
-  font-size: 0.82rem;
-  color: var(--text);
+  font-size: 0.72rem;
+  color: var(--muted);
 }
 .detail-unnamed { color: var(--muted); }
+
+.detail-road-type {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  /* color: var(--muted); */
+}
 
 .detail-surface {
   font-family: var(--font-mono);
@@ -1020,9 +981,7 @@ a:hover { color: var(--safe-light); }
 }
 
 .seg-score {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 1rem;
+  flex-shrink: 0;
 }
 
 .tier-dot {

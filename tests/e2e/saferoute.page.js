@@ -5,13 +5,6 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { emitWarning } from 'process';
 
-const __dir  = dirname(fileURLToPath(import.meta.url));
-const MOCKSAFE    = JSON.parse(readFileSync(join(__dir, '../fixtures/overpass-mock-safe.json'), 'utf8'));
-const MOCKDANGER   = JSON.parse(readFileSync(join(__dir, '../fixtures/overpass-mock-danger.json'), 'utf8'));
-const MOCKCAUTION   = JSON.parse(readFileSync(join(__dir, '../fixtures/overpass-mock-use-caution.json'), 'utf8'));
-const GPX    = join(__dir, '../fixtures/test-route.gpx');
-const GPXWARNING  = join(__dir, '../fixtures/test-unsafe-route.gpx');
-
 export class SafeRoutePage {
   constructor(page) {
     this.page = page;
