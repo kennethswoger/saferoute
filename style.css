@@ -348,6 +348,11 @@ a:hover { color: var(--safe-light); }
   background: var(--s2);
 }
 
+/* Lighten tiles only — polylines sit above in the overlay pane (z-index 400) */
+.leaflet-tile-pane {
+  filter: brightness(0.9) saturate(0.3);
+}
+
 /* Leaflet overrides */
 .leaflet-container {
   background: var(--bg);
@@ -778,7 +783,12 @@ a:hover { color: var(--safe-light); }
 .hazard-item.seg-active .hazard-expand { display: block; }
 
 .hazard-score {
-  flex-shrink: 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.15rem;
+  line-height: 1;
+  min-width: 2rem;
+  text-align: center;
 }
 
 .hazard-detail {
@@ -981,7 +991,10 @@ a:hover { color: var(--safe-light); }
 }
 
 .seg-score {
-  flex-shrink: 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1rem;
+  line-height: 1;
 }
 
 .tier-dot {
