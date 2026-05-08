@@ -1,0 +1,23 @@
+
+   {
+  "elements": [
+   {
+      "type": "way",
+      "id": 1003,
+      "geometry": [
+        { "lat": 39.1040, "lon": -94.5 },
+        { "lat": 39.1044, "lon": -94.5 },
+        { "lat": 39.1048, "lon": -94.5 },
+        { "lat": 39.1052, "lon": -94.5 },
+        { "lat": 39.1056, "lon": -94.5 }
+      ],
+      "tags": {
+        "highway": "trunk",
+        "maxspeed": "55 mph",
+        "name": "Example Highway"
+      }
+    }
+    ]
+   }
+
+   
