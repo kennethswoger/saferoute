@@ -41,6 +41,7 @@ test('uploads TCX and displays safe scored results', async ({ page }) => {
   await sr.mockOverpassSuccess(MOCKSAFE);
   await sr.uploadGPX(TCXSAFE);
   await sr.waitForResults();
+  await expect(page.getByText('TCX', { exact: true })).toBeVisible();
 
   await expect(page.locator('.ring-score')).toHaveText('80');
   await expect(page.locator('.score-name')).toHaveText('Test TCX Route');
@@ -80,6 +81,7 @@ test('overall score is between 0 and 100', async ({ page }) => {
   await sr.mockOverpassSuccess(MOCKSAFE);
   await sr.uploadGPX(GPXSAFE);
   await sr.waitForResults();
+  await expect(page.getByText('GPX', { exact: true })).toBeVisible();
 
   const score = await sr.getScore();
   expect(score).toBeGreaterThanOrEqual(0);
