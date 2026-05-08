@@ -1,4 +1,5 @@
 // ui/results.js — score ring, factor bars, segment table, hazard list
+import { getRoadLabel } from './roadLabels.js';
 
 const RING_R = 54;
 const RING_CIRC = 2 * Math.PI * RING_R; // ≈ 339.3
@@ -91,24 +92,26 @@ function buildHazards(segments) {
   }
 
   const items = hazards.map(s => {
-    const osmBadge   = s.source === 'osm'      ? `<span class="source-badge source-osm">OSM</span>`
-                     : s.source === 'inferred' ? `<span class="source-badge source-inferred">Inferred</span>`
-                     :                           `<span class="source-badge source-sim">Simulated</span>`;
-    const nameStr    = s.streetName ? `<span class="detail-street">${s.streetName}</span>` : `<span class="detail-street detail-unnamed">—</span>`;
-    const surfaceStr = s.surface    ? `<span class="detail-surface">${s.surface}</span>` : '';
+    const osmBadge    = s.source === 'osm'      ? `<span class="source-badge source-osm">OSM</span>`
+                      : s.source === 'inferred' ? `<span class="source-badge source-inferred">Inferred</span>`
+                      :                           `<span class="source-badge source-sim">Simulated</span>`;
+    const headingStr  = s.streetName ?? getRoadLabel(s.roadType);
+    const roadTypeStr = `<span class="detail-road-type">${getRoadLabel(s.roadType)}</span>`;
+    const nameSpan    = s.streetName ? `<span class="detail-street">${s.streetName}</span>` : '';
+    const surfaceStr  = s.surface    ? `<span class="detail-surface">${s.surface}</span>` : '';
 
     return `
     <div class="hazard-item" data-seg-idx="${s.index}">
       <div class="hazard-score" style="color:${scoreColor(s.score)}">${s.score}</div>
       <div class="hazard-detail">
-        <span class="hazard-road">${s.roadType}</span>
+        <span class="hazard-road">${headingStr}</span>
         <span class="hazard-meta">${s.speedLimit} mph · ${s.width}m wide · ${fmtDist(s.dist)}</span>
       </div>
       <div class="hazard-tier" style="color:${scoreColor(s.score)}">${s.tier}</div>
       <span class="seg-chevron">›</span>
       <div class="hazard-expand">
         <div class="seg-detail-inner">
-          ${osmBadge}${nameStr}${surfaceStr}
+          ${osmBadge}${roadTypeStr}${nameSpan}${surfaceStr}
         </div>
       </div>
     </div>`;
@@ -153,7 +156,7 @@ function buildSegmentSummary(segments) {
     const tierColor = safeCnt === total ? 'var(--safe)' : warnCnt === total ? 'var(--caution-fixed)' : 'var(--danger)';
     summaryHTML = `
       <p class="seg-summary-line">
-        <strong>${total}</strong> segments analyzed — all ${topRoad},
+        <strong>${total}</strong> segments analyzed — all ${getRoadLabel(topRoad)},
         ${avgSpeed}&thinsp;mph avg, consistently
         <span style="color:${tierColor};font-weight:500">${tierLabel}</span> throughout
       </p>`;
@@ -173,16 +176,15 @@ function buildSegmentSummary(segments) {
   // Hidden rows surface when the map focuses them (seg-active class)
   function segRow(s, hidden = false) {
     const color      = scoreColor(s.score);
-    const nameStr    = s.streetName ?? s.roadType;
-    const osmBadge   = s.source === 'osm'      ? `<span class="source-badge source-osm">OSM</span>`
-                     : s.source === 'inferred' ? `<span class="source-badge source-inferred">Inferred</span>`
-                     :                           `<span class="source-badge source-sim">Simulated</span>`;
-    const streetSpan = s.streetName
-      ? `<span class="detail-street">${s.streetName}</span>`
-      : `<span class="detail-street detail-unnamed">${s.roadType}</span>`;
-    const surfaceStr = s.surface ? `<span class="detail-surface">${s.surface}</span>` : '';
+    const nameStr     = s.streetName ?? getRoadLabel(s.roadType);
+    const osmBadge    = s.source === 'osm'      ? `<span class="source-badge source-osm">OSM</span>`
+                      : s.source === 'inferred' ? `<span class="source-badge source-inferred">Inferred</span>`
+                      :                           `<span class="source-badge source-sim">Simulated</span>`;
+    const roadTypeStr = `<span class="detail-road-type">${getRoadLabel(s.roadType)}</span>`;
+    const streetSpan  = s.streetName ? `<span class="detail-street">${s.streetName}</span>` : '';
+    const surfaceStr  = s.surface ? `<span class="detail-surface">${s.surface}</span>` : '';
     // Speed · width · distance shown only in the expand, not the compact row
-    const detailMeta = `<span class="detail-surface">${s.speedLimit}&thinsp;mph · ${s.width}m · ${fmtDist(s.dist)}</span>`;
+    const detailMeta  = `<span class="detail-surface">${s.speedLimit}&thinsp;mph · ${s.width}m · ${fmtDist(s.dist)}</span>`;
     return `
       <div class="flagged-row${hidden ? ' flagged-row--hidden' : ''}" data-seg-idx="${s.index}">
         <span class="seg-score" style="color:${color}">${s.score}</span>
@@ -190,7 +192,7 @@ function buildSegmentSummary(segments) {
         <span class="seg-flag-tier" style="color:${color}">${s.tier}</span>
         <span class="seg-chevron">›</span>
         <div class="flagged-expand">
-          <div class="seg-detail-inner">${osmBadge}${streetSpan}${detailMeta}${surfaceStr}</div>
+          <div class="seg-detail-inner">${osmBadge}${roadTypeStr}${streetSpan}${detailMeta}${surfaceStr}</div>
         </div>
       </div>`;
   }

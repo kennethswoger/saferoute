@@ -265,24 +265,6 @@ function showError(msg) {
   alert(msg);
 }
 
-// ── Theme toggle ──────────────────────────────────────────────────────────────
-const themeBtn = document.getElementById('themeBtn');
-
-function applyTheme(theme) {
-  document.documentElement.dataset.theme = theme;
-  themeBtn.textContent = theme === 'light' ? '🌙' : '☀️';
-  import('./ui/map.js').then(({ setTileTheme }) => setTileTheme(theme));
-}
-
-themeBtn.addEventListener('click', () => {
-  const next = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
-  localStorage.setItem('sr-theme', next);
-  applyTheme(next);
-});
-
-// Restore saved preference, default to dark
-applyTheme(localStorage.getItem('sr-theme') ?? 'dark');
-
 // ── Startup ────────────────────────────────────────────────────────────────────
 // Priority: (1) Strava OAuth callback, (2) shared hash, (3) existing Strava session
 (async () => {

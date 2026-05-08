@@ -1,40 +1,22 @@
 // ui/map.js — Leaflet map, color-coded segment polylines, start/end markers
+import { getRoadLabel } from './roadLabels.js';
 
-const TILE_URLS = {
-  dark:  'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-  light: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-};
-const TILE_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
+const TILE_URL  = 'https://tile.thunderforest.com/cycle/{z}/{x}/{y}.png?apikey=86d0ff46166147298dc5fa47c9c31c9a';
+const TILE_ATTR = '&copy; <a href="https://www.thunderforest.com">Thunderforest</a>, &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>';
 
 let tileLayer = null;
 
 const TIER_COLOR = {
-  dark: {
-    safe:   '#1D9E75',
-    warn:   '#ffb74d',
-    danger: '#D85A30',
-  },
-  light: {
-    safe:   '#0a6644',   // deeper green — readable on white tiles
-    warn:   '#92570a',   // Sentinel caution token — dark amber
-    danger: '#ba1a1a',   // Sentinel error token — dark red
-  },
+  safe:   '#1D9E75',
+  warn:   '#ffb74d',
+  danger: '#D85A30',
 };
 
-function tierColors() {
-  const theme = document.documentElement.dataset.theme ?? 'dark';
-  return TIER_COLOR[theme] ?? TIER_COLOR.dark;
-}
-
 function segmentColor(seg) {
-  return tierColors()[seg.tierColor] ?? tierColors().warn;
+  return TIER_COLOR[seg.tierColor] ?? TIER_COLOR.warn;
 }
 
-function segmentWeight(seg) {
-  if (seg.tierColor === 'safe')   return 4;
-  if (seg.tierColor === 'warn')   return 5;
-  return 6;
-}
+function segmentWeight() { return 4; }
 
 let map          = null;
 let layerGroup   = null;
@@ -49,29 +31,24 @@ export function focusSegment(idx) {
   // Remove previous outline
   if (focusOutline) { layerGroup.removeLayer(focusOutline); focusOutline = null; }
 
-  const isLight = document.documentElement.dataset.theme === 'light';
-
   polylines.forEach((line, i) => {
     if (i === idx) {
-      // Outline layer: wide dark halo so the segment pops against any background
       focusOutline = L.polyline(line.getLatLngs(), {
-        color:    isLight ? '#191c1d' : '#000000',
+        color:    '#000000',
         weight:   18,
-        opacity:  isLight ? 0.55 : 0.35,
+        opacity:  0.4,
         lineCap:  'round',
         lineJoin: 'round',
       }).addTo(layerGroup);
 
-      // Bright tier color on top so the route identity is still readable
-      const focusColor = isLight ? tierColors()[segMeta[idx]?.tierColor] ?? tierColors().warn
-                                 : '#FFFFFF';
+      const focusColor = TIER_COLOR[segMeta[idx]?.tierColor] ?? TIER_COLOR.warn;
       line.setStyle({ color: focusColor, weight: 8, opacity: 1.0 });
       line.bringToFront();
       map.fitBounds(line.getBounds(), { padding: [60, 60], maxZoom: 17 });
     } else {
       line.setStyle({
-        color:   tierColors()[segMeta[i]?.tierColor] ?? tierColors().warn,
-        weight:  segmentWeight({ tierColor: segMeta[i]?.tierColor }),
+        color:   TIER_COLOR[segMeta[i]?.tierColor] ?? TIER_COLOR.warn,
+        weight:  segmentWeight(),
         opacity: 0.22,
       });
     }
@@ -83,8 +60,8 @@ export function clearFocus() {
   if (focusOutline) { layerGroup.removeLayer(focusOutline); focusOutline = null; }
   polylines.forEach((line, i) => {
     line.setStyle({
-      color:   tierColors()[segMeta[i]?.tierColor] ?? tierColors().warn,
-      weight:  segmentWeight({ tierColor: segMeta[i]?.tierColor }),
+      color:   TIER_COLOR[segMeta[i]?.tierColor] ?? TIER_COLOR.warn,
+      weight:  segmentWeight(),
       opacity: 0.88,
     });
   });
@@ -128,7 +105,7 @@ export function initMap(segments) {
       const segIdx = seg.index;
       const line = L.polyline(seg.points, {
         color:     segmentColor(seg),
-        weight:    segmentWeight(seg),
+        weight:    segmentWeight(),
         opacity:   0.88,
         lineCap:   'round',
         lineJoin:  'round',
@@ -183,12 +160,9 @@ export function initMap(segments) {
   // has real pixel dimensions and Leaflet can request tiles correctly.
   void mapEl.offsetWidth; // force reflow
 
-  const currentTheme = document.documentElement.dataset.theme ?? 'dark';
-  const tileUrl = TILE_URLS[currentTheme] ?? TILE_URLS.dark;
-
   if (mapEl.offsetWidth > 0) {
     map = L.map('map', { zoomControl: true, attributionControl: true });
-    tileLayer = L.tileLayer(tileUrl, { attribution: TILE_ATTR, subdomains: 'abcd', maxZoom: 19 }).addTo(map);
+    tileLayer = L.tileLayer(TILE_URL, { attribution: TILE_ATTR, maxZoom: 22 }).addTo(map);
     map.on('click', clearFocus);
     addLayers();
   } else {
@@ -197,7 +171,7 @@ export function initMap(segments) {
       if (mapEl.offsetWidth > 0) {
         ro.disconnect();
         map = L.map('map', { zoomControl: true, attributionControl: true });
-        tileLayer = L.tileLayer(tileUrl, { attribution: TILE_ATTR, subdomains: 'abcd', maxZoom: 19 }).addTo(map);
+        tileLayer = L.tileLayer(TILE_URL, { attribution: TILE_ATTR, maxZoom: 22 }).addTo(map);
         map.on('click', clearFocus);
         addLayers();
       }
@@ -208,13 +182,13 @@ export function initMap(segments) {
 
 // ── Tooltip content ────────────────────────────────────────────────────────────
 function buildTooltip(seg) {
-  const tierColor = tierColors()[seg.tierColor] ?? '#6B8070';
+  const tierColor = TIER_COLOR[seg.tierColor] ?? '#6B8070';
   return `
     <div class="sr-tt-row">
       <span class="sr-tt-score" style="color:${tierColor}">${seg.score}</span>
       <span class="sr-tt-sep">/100</span>
     </div>
-    <div class="sr-tt-meta">${seg.roadType} · ${seg.speedLimit} mph · ${seg.width}m wide</div>
+    <div class="sr-tt-meta">${getRoadLabel(seg.roadType)} · ${seg.speedLimit} mph · ${seg.width}m wide</div>
     <div class="sr-tt-tier" style="color:${tierColor}">${seg.tier}</div>
   `;
 }
@@ -233,16 +207,4 @@ function markerIcon(color, label) {
     html: svg, className: '',
     iconSize: [28, 36], iconAnchor: [14, 36], tooltipAnchor: [14, -36],
   });
-}
-
-// ── Swap tile layer when theme changes ─────────────────────────────────────────
-export function setTileTheme(theme) {
-  if (!map || !tileLayer) return;
-  const url = TILE_URLS[theme] ?? TILE_URLS.dark;
-  tileLayer.remove();
-  tileLayer = L.tileLayer(url, { attribution: TILE_ATTR, subdomains: 'abcd', maxZoom: 19 });
-  tileLayer.addTo(map);
-  tileLayer.bringToBack();
-  // Repaint polylines with theme-appropriate colors
-  clearFocus();
 }
