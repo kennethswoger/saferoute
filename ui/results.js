@@ -1,6 +1,5 @@
 // ui/results.js — score ring, factor bars, segment table, hazard list
 import { getRoadLabel } from './roadLabels.js';
-import { buildGaugeWidget } from './gauge.js';
 
 const RING_R = 54;
 const RING_CIRC = 2 * Math.PI * RING_R; // ≈ 339.3
@@ -103,7 +102,7 @@ function buildHazards(segments) {
 
     return `
     <div class="hazard-item" data-seg-idx="${s.index}">
-      <div class="hazard-score" data-gauge="${s.score}"></div>
+      <div class="hazard-score" style="color:${scoreColor(s.score)}">${s.score}</div>
       <div class="hazard-detail">
         <span class="hazard-road">${headingStr}</span>
         <span class="hazard-meta">${s.speedLimit} mph · ${s.width}m wide · ${fmtDist(s.dist)}</span>
@@ -188,7 +187,7 @@ function buildSegmentSummary(segments) {
     const detailMeta  = `<span class="detail-surface">${s.speedLimit}&thinsp;mph · ${s.width}m · ${fmtDist(s.dist)}</span>`;
     return `
       <div class="flagged-row${hidden ? ' flagged-row--hidden' : ''}" data-seg-idx="${s.index}">
-        <div class="seg-score" data-gauge="${s.score}"></div>
+        <span class="seg-score" style="color:${color}">${s.score}</span>
         <span class="seg-flag-name">${nameStr}</span>
         <span class="seg-flag-tier" style="color:${color}">${s.tier}</span>
         <span class="seg-chevron">›</span>
@@ -249,14 +248,6 @@ function buildDataQualityBanner(segments) {
     </div>`;
 }
 
-// ── Gauge injection ───────────────────────────────────────────────────────────
-function injectGauges(container) {
-  container.querySelectorAll('[data-gauge]').forEach(el => {
-    const score = parseInt(el.dataset.gauge, 10);
-    el.prepend(buildGaugeWidget(score));
-  });
-}
-
 // ── Animate in ────────────────────────────────────────────────────────────────
 function animateResults() {
   // Score ring — animate dashoffset after paint
@@ -309,8 +300,6 @@ export async function renderResults(result) {
     ${buildHazards(segments)}
     ${buildSegmentSummary(segments)}
   `;
-
-  injectGauges(panel);
 
   // Resolve map functions once — avoids async yield inside the click handler
   // which caused a race: a second invocation could see seg-active mid-toggle
