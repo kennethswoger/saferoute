@@ -12,9 +12,10 @@ Built for club ride organizers who want to audit routes before group rides.
 
 - **Drag-and-drop file upload** — GPX, TCX, and FIT supported
 - **Strava import** — connect your Strava account and pick a saved route directly, no file export needed
-- **Real OSM road data** — queries the Overpass API in a single batched request, racing two endpoints simultaneously for reliability
-- **Per-segment safety scoring** — 0–100 score based on five weighted factors
-- **Color-coded map** — green / amber / red polylines on a dark Leaflet map
+- **Ride profiles** — Solo, Club Ride, and Large Group profiles adjust scoring weights to match your ride type
+- **Real OSM road data** — queries the Overpass API in a single batched request, racing four endpoints simultaneously for reliability
+- **Per-segment safety scoring** — 0–100 score with a visual gauge, based on five weighted factors
+- **Color-coded map** — green / amber / red polylines on a Thunderforest OpenCycleMap base
 - **Interactive focus** — click any segment row or hazard to highlight and zoom to it on the map; click again to deselect
 - **Score breakdown** — factor bars showing what's driving the overall score
 - **Hazard list** — surfaces all segments scoring below 50
@@ -72,7 +73,7 @@ When Overpass is fully unavailable the engine falls back to residential defaults
 ## Tech Stack
 
 - **Vanilla HTML / CSS / JS** — no framework, no build step
-- **Leaflet 1.9.4** — map rendering with Stadia Maps Alidade Smooth Dark tiles
+- **Leaflet 1.9.4** — map rendering with Thunderforest OpenCycleMap tiles
 - **OpenStreetMap / Overpass API** — real road data
 - **fit-file-parser** — FIT file decoding via CDN
 - **GitHub Pages** — hosting
@@ -193,7 +194,9 @@ saferoute/
 │
 ├── ui/
 │   ├── map.js              # Leaflet map, polylines, focus interaction
-│   └── results.js          # Score ring, factor bars, hazard list, segment table
+│   ├── results.js          # Score ring, factor bars, hazard list, segment table
+│   ├── gauge.js            # Reusable score gauge SVG component
+│   └── roadLabels.js       # OSM highway type → US-friendly display labels
 │
 ├── js/
 │   └── strava.js           # Strava OAuth PKCE flow, token storage, API calls

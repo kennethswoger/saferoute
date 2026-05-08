@@ -8,6 +8,7 @@ import { readFileSync } from 'fs';
 const __dir  = dirname(fileURLToPath(import.meta.url));
 const GPXWARNING  = join(__dir, '../fixtures/test-unsafe-route.gpx');
 const GPXSAFE    = join(__dir, '../fixtures/test-route.gpx');
+const TCXSAFE    = join(__dir, '../fixtures/test-route.tcx');
 const MOCKSAFE    = JSON.parse(readFileSync(join(__dir, '../fixtures/overpass-mock-safe.json'), 'utf8'));
 const MOCKDANGER   = JSON.parse(readFileSync(join(__dir, '../fixtures/overpass-mock-danger.json'), 'utf8'));
 const MOCKCAUTION   = JSON.parse(readFileSync(join(__dir, '../fixtures/overpass-mock-use-caution.json'), 'utf8'));
@@ -31,6 +32,18 @@ test('uploads GPX and displays safe scored results', async ({ page }) => {
 
   await expect(page.locator('.ring-score')).toHaveText('80');
   await expect(page.locator('.score-name')).toHaveText('Safe Test Route');
+  await expect(page.locator('.score-tier')).toHaveAttribute('style', 'color:var(--safe)');
+});
+
+test('uploads TCX and displays safe scored results', async ({ page }) => {
+  const sr = new SafeRoutePage(page);
+  await sr.goto();
+  await sr.mockOverpassSuccess(MOCKSAFE);
+  await sr.uploadGPX(TCXSAFE);
+  await sr.waitForResults();
+
+  await expect(page.locator('.ring-score')).toHaveText('80');
+  await expect(page.locator('.score-name')).toHaveText('Test TCX Route');
   await expect(page.locator('.score-tier')).toHaveAttribute('style', 'color:var(--safe)');
 });
 
